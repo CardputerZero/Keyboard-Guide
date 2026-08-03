@@ -46,6 +46,7 @@ private:
     std::array<GuideModifierMode, kModifierCount> _modifier_modes{};
     std::array<bool, kModifierCount> _modifier_modes_known{};
     std::array<bool, kModifierCount> _pending_inactive{};
+    std::array<bool, 4> _raw_fn_direction_down{};
     uint32_t _modifier_last_poll_ms         = 0;
     uint32_t _modifier_consecutive_failures = 0;
     bool _modifier_snapshot_seen            = false;
@@ -57,6 +58,7 @@ private:
     void handleModifierReadFailure();
     bool readModifierRegister(uint8_t register_address, uint8_t& value) const;
     bool modifierStateAvailable() const;
+    bool fnModifierActive() const;
 #endif
 
 #if KEYBOARD_GUIDE_USE_SDL

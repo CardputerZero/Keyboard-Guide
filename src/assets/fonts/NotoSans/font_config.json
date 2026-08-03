@@ -27,6 +27,18 @@
             "ranges": [
                 "0x20-0x7E"
             ]
+        },
+        {
+            "name": "font_noto_sans_sc_semibold_symbols_20",
+            "source": "NotoSansSC-SemiBold.ttf",
+            "args": [
+                "--no-compress",
+                "--no-prefilter",
+                "--force-fast-kern-format"
+            ],
+            "size": 20,
+            "bpp": 4,
+            "symbols": "▲▼◀▶"
         }
     ]
 }

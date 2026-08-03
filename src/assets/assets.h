@@ -21,6 +21,7 @@ LV_IMAGE_DECLARE(image_cursor_pressed);
 /* Fonts */
 LV_FONT_DECLARE(font_noto_sans_sc_semibold_10);
 LV_FONT_DECLARE(font_noto_sans_sc_semibold_14);
+LV_FONT_DECLARE(font_noto_sans_sc_semibold_symbols_20);
 
 #ifdef __cplusplus
 }

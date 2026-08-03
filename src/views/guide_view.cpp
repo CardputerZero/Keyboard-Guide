@@ -44,8 +44,8 @@ constexpr int kDividerHeight    = 34;
 constexpr int kSequenceY        = 47;
 constexpr int kSequenceWidth    = 32;
 constexpr int kSequenceHeight   = 37;
-constexpr int kFnSequenceY      = 53;
-constexpr int kFnSequenceWidth  = 44;
+constexpr int kFnSequenceY      = 51;
+constexpr int kFnSequenceWidth  = 32;
 constexpr int kFnSequenceHeight = 26;
 
 constexpr int kOverviewShiftX = 30;
@@ -94,14 +94,33 @@ constexpr std::array<int, 3> kSequenceX{145, 190, 235};
 constexpr std::array<float, 3> kSequenceCursorX{170.0f, 215.0f, 260.0f};
 constexpr std::array<char, 3> kShiftSequenceCharacters{'A', 'B', 'C'};
 constexpr std::array<char, 3> kSymSequenceCharacters{'!', '@', '#'};
-constexpr std::array<int, 2> kFnSequenceX{164, 229};
-constexpr std::array<float, 2> kFnSequenceCursorX{189.0f, 254.0f};
-constexpr std::array<const char*, 2> kFnSequenceNames{"F5", "F6"};
+constexpr std::array<int, 4> kFnSequenceX{132, 174, 216, 258};
+constexpr std::array<float, 4> kFnSequenceCursorX{157.0f, 199.0f, 241.0f, 283.0f};
+constexpr std::array<const char*, 4> kFnSequenceNames{
+    "\xE2\x96\xB2",
+    "\xE2\x96\xBC",
+    "\xE2\x97\x80",
+    "\xE2\x96\xB6",
+};
 
-constexpr std::array<int, 8> kConfettiDx{-24, -17, -8, 7, 16, 24, -20, 20};
-constexpr std::array<int, 8> kConfettiDy{-7, -20, -25, -25, -19, -6, 8, 8};
-constexpr std::array<uint32_t, 8> kConfettiColors{
+constexpr int kFinalTextX      = 35;
+constexpr int kFinalTextY      = 51;
+constexpr int kFinalTextStep   = 23;
+constexpr int kFinalTextWidth  = 20;
+constexpr int kFinalTextHeight = 26;
+constexpr std::array<char, 11> kFinalTextCharacters{'H', 'i', ',', 'M', '5', 'S', 't', 'a', 'c', 'k', '!'};
+
+constexpr size_t kNormalConfettiCount = 8;
+constexpr std::array<int, 24> kConfettiDx{
+    -24, -17, -8, 7, 16, 24, -20, 20, -120, -104, -88, -70, -52, -34, 34, 52, 70, 88, 104, 120, -112, -76, 76, 112,
+};
+constexpr std::array<int, 24> kConfettiDy{
+    -7, -20, -25, -25, -19, -6, 8, 8, -12, -30, -40, -25, -45, -34, -34, -45, -25, -40, -30, -12, 4, -5, -5, 4,
+};
+constexpr std::array<uint32_t, 24> kConfettiColors{
     0xFFD45A, 0x59D4FF, 0xFF6B9E, 0x3FCC75, 0xC77DFF, 0xFF9F43, 0x59D4FF, 0xFFD45A,
+    0x3FCC75, 0xFF6B9E, 0xFFD45A, 0x59D4FF, 0xFF9F43, 0xC77DFF, 0x3FCC75, 0xFFD45A,
+    0x59D4FF, 0xFF6B9E, 0xC77DFF, 0xFF9F43, 0xFFD45A, 0x3FCC75, 0x59D4FF, 0xFF6B9E,
 };
 
 using smooth_ui_toolkit::lvgl_cpp::Container;
@@ -134,6 +153,11 @@ bool isFnExercise(int exercise_index)
     return exercise_index == 6;
 }
 
+bool isFinalTextExercise(int exercise_index)
+{
+    return exercise_index == 7;
+}
+
 bool usesSequenceLayout(int exercise_index)
 {
     return isShiftSequenceExercise(exercise_index) || isSymExercise(exercise_index) || isFnExercise(exercise_index);
@@ -160,7 +184,16 @@ size_t targetIndex(GuideTarget target)
 
 size_t fnTargetIndex(GuideTarget target)
 {
-    return target == GuideTarget::F6 ? 1 : 0;
+    switch (target) {
+        case GuideTarget::Down:
+            return 1;
+        case GuideTarget::Left:
+            return 2;
+        case GuideTarget::Right:
+            return 3;
+        default:
+            return 0;
+    }
 }
 
 }  // namespace
@@ -355,6 +388,14 @@ void GuideView::onEnter(lv_obj_t* parent)
     _skip_label->setTextColor(lv_color_hex(kNavText));
     _skip_label->setText("Skip: Enter >");
 
+    _intro_title = std::make_unique<Label>(_root->raw_ptr());
+    _intro_title->setSize(220, lv_font_get_line_height(&lv_font_montserrat_20) + 4);
+    _intro_title->setPos(50, 12);
+    _intro_title->setTextAlign(LV_TEXT_ALIGN_CENTER);
+    _intro_title->setTextFont(&lv_font_montserrat_20);
+    _intro_title->setTextColor(lv_color_hex(kCurrent));
+    _intro_title->setText("Keyboard Guide");
+
     _shift_key = std::make_unique<KeyVisual>(_root->raw_ptr(), kShiftWidth, kShiftFill, kShiftBorder, kShiftBase,
                                              kKeyHeight / 2, true);
     _shift_key->setPos(kHoldShiftX, kKeyY);
@@ -422,9 +463,20 @@ void GuideView::onEnter(lv_obj_t* parent)
         label->setSize(kFnSequenceWidth, kFnSequenceHeight);
         label->setPos(kFnSequenceX[index], kFnSequenceY);
         label->setTextAlign(LV_TEXT_ALIGN_CENTER);
-        label->setTextFont(&lv_font_montserrat_20);
+        label->setTextFont(uiSymbolFont20());
         label->setText(kFnSequenceNames[index]);
         label->setTransformPivot(kFnSequenceWidth / 2, kFnSequenceHeight / 2);
+    }
+
+    for (size_t index = 0; index < _final_text_labels.size(); ++index) {
+        auto& label = _final_text_labels[index];
+        label       = std::make_unique<Label>(_root->raw_ptr());
+        label->setSize(kFinalTextWidth, kFinalTextHeight);
+        label->setPos(kFinalTextX + static_cast<int>(index) * kFinalTextStep, kFinalTextY);
+        label->setTextAlign(LV_TEXT_ALIGN_CENTER);
+        label->setTextFont(&lv_font_montserrat_20);
+        label->setText(std::string(1, kFinalTextCharacters[index]));
+        label->setTransformPivot(kFinalTextWidth / 2, kFinalTextHeight / 2);
     }
 
     for (size_t index = 0; index < _confetti.size(); ++index) {
@@ -477,6 +529,7 @@ void GuideView::onEnter(lv_obj_t* parent)
     _result_pop.cancel();
     _result_pop_progress = 1.0f;
     _result_pop_active   = false;
+    _whole_text_pop      = false;
 
     const GuideLessonState& state = _view_model.state().get();
     _shown_result_revision        = state.result_revision;
@@ -493,6 +546,7 @@ void GuideView::onExit()
     resetPopTarget();
     _result_pop_progress      = 1.0f;
     _result_pop_active        = false;
+    _whole_text_pop           = false;
     _shown_result_revision    = 0;
     _shown_attention_revision = 0;
     _shake_started_at         = 0;
@@ -500,6 +554,9 @@ void GuideView::onExit()
     _cursor.reset();
     for (auto& piece : _confetti) {
         piece.reset();
+    }
+    for (auto& label : _final_text_labels) {
+        label.reset();
     }
     for (auto& label : _fn_sequence_labels) {
         label.reset();
@@ -515,6 +572,7 @@ void GuideView::onExit()
     _fn_key.reset();
     _sym_key.reset();
     _shift_key.reset();
+    _intro_title.reset();
     _skip_label.reset();
     _root.reset();
 }
@@ -536,41 +594,46 @@ void GuideView::tick(uint32_t now_ms)
 
 void GuideView::render(const GuideLessonState& state)
 {
+    const bool intro          = state.phase == GuidePhase::Intro;
     const bool shift_sequence = isShiftSequenceExercise(state.exercise_index);
     const bool sym_exercise   = isSymExercise(state.exercise_index);
     const bool fn_exercise    = isFnExercise(state.exercise_index);
+    const bool final_text     = isFinalTextExercise(state.exercise_index);
     const bool sequence       = usesSequenceLayout(state.exercise_index);
     const bool overview       = state.exercise_index == 4;
     const bool hold           = state.exercise_index == 1;
     const bool success        = isSuccessPhase(state.phase);
 
-    _shift_key->setHidden(!(overview || hold || shift_sequence));
-    _shift_key->setPos(overview ? kOverviewShiftX : (shift_sequence ? kSequenceShiftX : kHoldShiftX), kKeyY);
-    _shift_key->setPressed(!overview && (state.shift_pressed || state.shift_locked));
-    _shift_key->setLocked(!overview && state.shift_locked);
-    _shift_key->setOneShotArmed(!overview && state.phase == GuidePhase::OneShotAwaitLetter && !state.shift_locked,
-                                lv_tick_get());
+    _skip_label->setHidden(intro);
+    _intro_title->setHidden(!intro);
 
-    _sym_key->setHidden(!(overview || sym_exercise));
-    _sym_key->setPos(overview ? kOverviewSymX : kSequenceShiftX, kKeyY);
+    _shift_key->setHidden(!(intro || overview || hold || shift_sequence));
+    _shift_key->setPos(intro || overview ? kOverviewShiftX : (shift_sequence ? kSequenceShiftX : kHoldShiftX), kKeyY);
+    _shift_key->setPressed(!intro && !overview && (state.shift_pressed || state.shift_locked));
+    _shift_key->setLocked(!intro && !overview && state.shift_locked);
+    _shift_key->setOneShotArmed(
+        !intro && !overview && state.phase == GuidePhase::OneShotAwaitLetter && !state.shift_locked, lv_tick_get());
+
+    _sym_key->setHidden(!(intro || overview || sym_exercise));
+    _sym_key->setPos(intro || overview ? kOverviewSymX : kSequenceShiftX, kKeyY);
     _sym_key->setPressed(sym_exercise && (state.sym_pressed || state.sym_locked));
     _sym_key->setLocked(sym_exercise && state.sym_locked);
     _sym_key->setOneShotArmed(sym_exercise && state.sym_one_shot && !state.sym_locked, lv_tick_get());
 
-    _fn_key->setHidden(!(overview || fn_exercise));
-    _fn_key->setPos(overview ? kOverviewFnX : kSequenceShiftX, kKeyY);
+    _fn_key->setHidden(!(intro || overview || fn_exercise));
+    _fn_key->setPos(intro || overview ? kOverviewFnX : kSequenceShiftX, kKeyY);
     _fn_key->setPressed(fn_exercise && (state.fn_pressed || state.fn_locked));
     _fn_key->setLocked(fn_exercise && state.fn_locked);
     _fn_key->setOneShotArmed(fn_exercise && state.fn_one_shot && !state.fn_locked, lv_tick_get());
 
-    _letter_key->setHidden(sequence || overview);
+    _letter_key->setHidden(intro || sequence || overview || final_text);
     _letter_key->setPos(hold ? kHoldLetterX : kNormalKeyX, kKeyY);
     _letter_key->setPressed(state.character_pressed == 'A');
 
     _plus_label->setHidden(!hold);
-    _equals_label->setHidden(sequence || overview);
+    _equals_label->setHidden(intro || sequence || overview || final_text);
     _equals_label->setX(hold ? kHoldEqualX : kNormalEqualX);
-    _result_label->setHidden(sequence || overview);
+    _result_label->setHidden(intro || sequence || overview || final_text);
     _result_label->setX(hold ? kHoldResultX : kNormalResultX);
     _result_label->setText(hold ? "A" : "a");
     _result_label->setTextColor(lv_color_hex(state.typed_text.empty() ? kFuture : kComplete));
@@ -592,6 +655,13 @@ void GuideView::render(const GuideLessonState& state)
         label->setHidden(!fn_exercise);
         label->setTextColor(lv_color_hex(complete ? kFnFill : (current ? kCurrent : kFuture)));
     }
+    for (size_t index = 0; index < _final_text_labels.size(); ++index) {
+        auto& label         = _final_text_labels[index];
+        const bool complete = index < state.typed_text.size();
+        const bool current  = index == state.typed_text.size() && !success;
+        label->setHidden(!final_text);
+        label->setTextColor(lv_color_hex(complete ? kComplete : (current ? kCurrent : kFuture)));
+    }
 
     const int prompt_line_count  = 1 + static_cast<int>(std::count(state.prompt.begin(), state.prompt.end(), '\n'));
     const int prompt_text_height = lv_font_get_line_height(uiFont14()) * prompt_line_count;
@@ -600,8 +670,8 @@ void GuideView::render(const GuideLessonState& state)
     _prompt_label->setText(state.prompt);
     _prompt_label->setTextColor(lv_color_hex(state.last_action_error ? kError : (success ? kComplete : kPrompt)));
 
-    _cursor->setHidden(overview);
-    if (!overview) {
+    _cursor->setHidden(intro || overview || (final_text && success));
+    if (!intro && !overview && !(final_text && success)) {
         _cursor_x.move(cursorTargetX(state));
     }
 
@@ -614,7 +684,13 @@ void GuideView::render(const GuideLessonState& state)
 
     if (_shown_result_revision != state.result_revision) {
         _shown_result_revision = state.result_revision;
-        if (fn_exercise && !state.typed_text.empty()) {
+        if (final_text && state.typed_text.size() == _final_text_labels.size() && success) {
+            playFinalTextPop();
+        } else if (final_text && !state.typed_text.empty()) {
+            const size_t index = std::min(state.typed_text.size() - 1, _final_text_labels.size() - 1);
+            playResultPop(*_final_text_labels[index], kFinalTextX + static_cast<int>(index) * kFinalTextStep,
+                          kFinalTextY, kFinalTextWidth, kFinalTextHeight);
+        } else if (fn_exercise && !state.typed_text.empty()) {
             const size_t index = std::min(state.typed_text.size() - 1, _fn_sequence_labels.size() - 1);
             playResultPop(*_fn_sequence_labels[index], kFnSequenceX[index], kFnSequenceY, kFnSequenceWidth,
                           kFnSequenceHeight);
@@ -636,13 +712,15 @@ void GuideView::applyTransforms(uint32_t now_ms)
         shake_offset = static_cast<int>(std::lround(std::sin(progress * kTau * 3.0f) * (1.0f - progress) * 4.0f));
     }
 
-    const int bob_offset = static_cast<int>(std::lround(_cursor_bob_value * 4.0f));
-    const int cursor_x   = static_cast<int>(std::lround(_cursor_x.value())) + kCursorXOffset - bob_offset;
-    _cursor->setPos(cursor_x, kCursorY - bob_offset);
+    const bool final_text = isFinalTextExercise(_view_model.state().get().exercise_index);
+    const int bob_offset  = static_cast<int>(std::lround(_cursor_bob_value * 4.0f));
+    const int cursor_x =
+        static_cast<int>(std::lround(_cursor_x.value())) + (final_text ? 0 : kCursorXOffset) - bob_offset;
+    _cursor->setPos(cursor_x, kCursorY - (final_text ? 6 : 0) - bob_offset);
     lv_obj_move_foreground(_cursor->raw_ptr());
     _prompt_label->setX(kPromptX + shake_offset);
 
-    if (!_pop_label) {
+    if (!_pop_label && !_whole_text_pop) {
         for (auto& piece : _confetti) {
             piece->setHidden(true);
         }
@@ -662,20 +740,32 @@ void GuideView::applyTransforms(uint32_t now_ms)
         result_scale         = 0.94f + 0.06f * smooth_ui_toolkit::ease::ease_out_back(progress);
     }
     const int scale = static_cast<int>(std::lround(result_scale * 256.0f));
-    lv_obj_set_style_transform_scale_x(_pop_label->raw_ptr(), scale, LV_PART_MAIN);
-    lv_obj_set_style_transform_scale_y(_pop_label->raw_ptr(), scale, LV_PART_MAIN);
-    _pop_label->setY(_pop_y - static_cast<int>(std::lround(std::sin(pop_progress * kTau * 0.5f) * 4.0f)));
-    lv_obj_move_foreground(_pop_label->raw_ptr());
+    const int lift  = static_cast<int>(std::lround(std::sin(pop_progress * kTau * 0.5f) * 4.0f));
+    if (_whole_text_pop) {
+        for (auto& label : _final_text_labels) {
+            lv_obj_set_style_transform_scale_x(label->raw_ptr(), scale, LV_PART_MAIN);
+            lv_obj_set_style_transform_scale_y(label->raw_ptr(), scale, LV_PART_MAIN);
+            label->setY(kFinalTextY - lift);
+            lv_obj_move_foreground(label->raw_ptr());
+        }
+    } else {
+        lv_obj_set_style_transform_scale_x(_pop_label->raw_ptr(), scale, LV_PART_MAIN);
+        lv_obj_set_style_transform_scale_y(_pop_label->raw_ptr(), scale, LV_PART_MAIN);
+        _pop_label->setY(_pop_y - lift);
+        lv_obj_move_foreground(_pop_label->raw_ptr());
+    }
 
     const bool show_confetti = _result_pop_active && pop_progress > 0.03f && pop_progress < 0.94f;
     const float burst        = std::sin(std::min(pop_progress / 0.72f, 1.0f) * kTau * 0.25f);
     const float fade         = 1.0f - std::clamp((pop_progress - 0.42f) / 0.52f, 0.0f, 1.0f);
-    const int origin_x       = _pop_x + _pop_width / 2;
-    const int origin_y       = _pop_y + _pop_height / 2;
+    const int origin_x       = _whole_text_pop ? kScreenWidth / 2 : _pop_x + _pop_width / 2;
+    const int origin_y       = _whole_text_pop ? kFinalTextY + kFinalTextHeight / 2 : _pop_y + _pop_height / 2;
+    const size_t piece_count = _whole_text_pop ? _confetti.size() : kNormalConfettiCount;
     for (size_t index = 0; index < _confetti.size(); ++index) {
-        auto& piece = _confetti[index];
-        piece->setHidden(!show_confetti);
-        if (!show_confetti) {
+        auto& piece              = _confetti[index];
+        const bool piece_visible = show_confetti && index < piece_count;
+        piece->setHidden(!piece_visible);
+        if (!piece_visible) {
             continue;
         }
         const int x = origin_x + static_cast<int>(std::lround(static_cast<float>(kConfettiDx[index]) * burst));
@@ -704,8 +794,31 @@ void GuideView::playResultPop(Label& label, int x, int y, int width, int height)
     _result_pop.play();
 }
 
+void GuideView::playFinalTextPop()
+{
+    _result_pop.cancel();
+    resetPopTarget();
+    _whole_text_pop      = true;
+    _result_pop_progress = 0.0f;
+    _result_pop_active   = true;
+    _result_pop.start    = 0.0f;
+    _result_pop.end      = 1.0f;
+    _result_pop.init();
+    _result_pop.play();
+}
+
 void GuideView::resetPopTarget()
 {
+    if (_whole_text_pop) {
+        for (auto& label : _final_text_labels) {
+            if (label && label->isValid()) {
+                lv_obj_set_style_transform_scale_x(label->raw_ptr(), 256, LV_PART_MAIN);
+                lv_obj_set_style_transform_scale_y(label->raw_ptr(), 256, LV_PART_MAIN);
+                label->setY(kFinalTextY);
+            }
+        }
+        _whole_text_pop = false;
+    }
     if (_pop_label) {
         if (_pop_label->isValid()) {
             lv_obj_set_style_transform_scale_x(_pop_label->raw_ptr(), 256, LV_PART_MAIN);
@@ -723,6 +836,11 @@ void GuideView::resetPopTarget()
 
 float GuideView::cursorTargetX(const GuideLessonState& state)
 {
+    if (isFinalTextExercise(state.exercise_index)) {
+        const size_t index = std::min(state.typed_text.size(), kFinalTextCharacters.size() - 1);
+        const float target = static_cast<float>(kFinalTextX + static_cast<int>(index) * kFinalTextStep + 25);
+        return std::min(target, static_cast<float>(kScreenWidth - kCursorSize - kCursorXOffset));
+    }
     if (isFnExercise(state.exercise_index)) {
         if (state.cursor_target == GuideTarget::Fn) {
             return kSequenceShiftCursorX;

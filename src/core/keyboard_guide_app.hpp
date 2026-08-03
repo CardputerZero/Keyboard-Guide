@@ -20,7 +20,8 @@ public:
     bool quitRequested() const;
 
 private:
-    static constexpr uint32_t kExitHoldMs = 900;
+    static constexpr uint32_t kExitHoldMs  = 900;
+    static constexpr uint32_t kEnterHoldMs = 900;
 
     GuideModel _model;
     GuideViewModel _view_model;
@@ -29,9 +30,13 @@ private:
     bool _started               = false;
     bool _quit_requested        = false;
     bool _escape_down           = false;
+    bool _enter_down            = false;
+    bool _enter_hold_handled    = false;
     uint32_t _escape_pressed_at = 0;
+    uint32_t _enter_pressed_at  = 0;
 
     void onInput(const GuideInputEvent& event);
+    bool onIntroPage();
 };
 
 }  // namespace keyboard_guide

@@ -10,7 +10,7 @@ namespace keyboard_guide {
 
 class GuideModel {
 public:
-    static constexpr int kExerciseCount = 7;
+    static constexpr int kExerciseCount = 8;
 
     smooth_ui_toolkit::SingleObservable<GuideLessonState>& state();
     void handleInput(const GuideInputEvent& event);
@@ -68,10 +68,14 @@ private:
     void handleFunctionKey(const GuideInputEvent& event);
     void handleFunctionKeyPressed(GuideLessonState next, GuideKey key);
     void handleFunctionKeyReleased(GuideLessonState next, GuideKey key);
+    void handleFinalText(const GuideInputEvent& event);
+    void handleFinalTextPressed(GuideLessonState next, char character);
+    void handleFinalTextReleased(GuideLessonState next);
     void appendSequenceCharacter(GuideLessonState next, char character);
     void appendSymCharacter(GuideLessonState next, char character);
     void appendFunctionKey(GuideLessonState next, GuideKey key);
     void completeExercise(GuideLessonState next, std::string prompt);
+    void clearModifierState();
     void navigateToExercise(int exercise_index);
     void advanceExercise();
     void markCharacterDown(char character);
@@ -81,6 +85,8 @@ private:
     static char expectedSequenceCharacter(const GuideLessonState& state);
     static char expectedSymCharacter(const GuideLessonState& state);
     static GuideKey expectedFunctionKey(const GuideLessonState& state);
+    char resolveFinalCharacter(const GuideLessonState& state, char character) const;
+    static char expectedFinalCharacter(const GuideLessonState& state);
     static GuideTarget targetForCharacter(char character);
     static GuideTarget targetForSymCharacter(char character);
     static GuideTarget targetForFunctionKey(GuideKey key);

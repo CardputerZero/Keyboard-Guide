@@ -28,7 +28,11 @@ bool KeyboardGuideApp::start(lv_obj_t* parent)
     if (!_input.openDefault()) {
         spdlog::warn("Keyboard Guide: keyboard input is unavailable");
     }
-    _started = true;
+    _quit_requested     = false;
+    _escape_down        = false;
+    _enter_down         = false;
+    _enter_hold_handled = false;
+    _started            = true;
     spdlog::info("Keyboard Guide: started keyboard lesson");
     return true;
 }
@@ -56,6 +60,10 @@ void KeyboardGuideApp::tick(uint32_t now_ms)
         _quit_requested = true;
         _escape_down    = false;
     }
+    if (onIntroPage() && _enter_down && !_enter_hold_handled && now_ms - _enter_pressed_at >= kEnterHoldMs) {
+        _quit_requested     = true;
+        _enter_hold_handled = true;
+    }
     _view.tick(now_ms);
 }
 
@@ -76,7 +84,21 @@ void KeyboardGuideApp::onInput(const GuideInputEvent& event)
         return;
     }
     if (event.key == GuideKey::Enter) {
-        if (event.pressed && !event.repeated) {
+        if (onIntroPage()) {
+            if (event.pressed && !event.repeated && !_enter_down) {
+                _enter_down         = true;
+                _enter_hold_handled = false;
+                _enter_pressed_at   = event.timestamp_ms;
+            } else if (!event.pressed && _enter_down) {
+                const bool held = _enter_hold_handled || event.timestamp_ms - _enter_pressed_at >= kEnterHoldMs;
+                _enter_down     = false;
+                if (held) {
+                    _quit_requested = true;
+                } else {
+                    _view_model.nextExercise();
+                }
+            }
+        } else if (event.pressed && !event.repeated) {
             if (!_view_model.nextExercise()) {
                 _quit_requested = true;
             }
@@ -84,6 +106,11 @@ void KeyboardGuideApp::onInput(const GuideInputEvent& event)
         return;
     }
     _view_model.onInput(event);
+}
+
+bool KeyboardGuideApp::onIntroPage()
+{
+    return _model.state().get().phase == GuidePhase::Intro;
 }
 
 }  // namespace keyboard_guide

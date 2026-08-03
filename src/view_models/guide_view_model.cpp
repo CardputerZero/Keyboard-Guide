@@ -10,7 +10,7 @@ GuideViewModel::GuideViewModel(GuideModel& model) : _model(model)
 
 void GuideViewModel::onEnter()
 {
-    spdlog::info("Keyboard Guide: SHIFT modes lesson entered");
+    spdlog::info("Keyboard Guide: keyboard lesson entered");
 }
 
 void GuideViewModel::onExit()

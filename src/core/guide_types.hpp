@@ -11,8 +11,10 @@ enum class GuideKey {
     Shift,
     Sym,
     Fn,
-    F5,
-    F6,
+    Up,
+    Down,
+    Left,
+    Right,
     Enter,
     Escape,
 };
@@ -25,6 +27,7 @@ enum class GuideModifierMode {
 };
 
 enum class GuidePhase {
+    Intro,
     PlainAwaitLetter,
     HoldAwaitShift,
     HoldAwaitLetter,
@@ -37,11 +40,13 @@ enum class GuidePhase {
     ModifierOverview,
     SymAwaitSymbol,
     FnAwaitKey,
+    TextAwaitCharacter,
     SuccessHold,
     Done,
 };
 
 enum class GuideTarget {
+    None,
     Shift,
     A,
     B,
@@ -50,8 +55,10 @@ enum class GuideTarget {
     At,
     Hash,
     Fn,
-    F5,
-    F6,
+    Up,
+    Down,
+    Left,
+    Right,
 };
 
 struct GuideInputEvent {

@@ -7,6 +7,8 @@
 namespace keyboard_guide {
 namespace {
 
+constexpr char kFinalText[] = "Hi,M5Stack!";
+
 bool isSuccessPhase(GuidePhase phase)
 {
     return phase == GuidePhase::SuccessHold || phase == GuidePhase::Done;
@@ -38,13 +40,40 @@ std::string symPrompt(char character)
 
 std::string fnPrompt(GuideKey key)
 {
-    const char* target = key == GuideKey::F6 ? "F6" : "F5";
+    const char* target = "Up";
+    switch (key) {
+        case GuideKey::Down:
+            target = "Down";
+            break;
+        case GuideKey::Left:
+            target = "Left";
+            break;
+        case GuideKey::Right:
+            target = "Right";
+            break;
+        default:
+            break;
+    }
     return std::string("Use FN any way you like.\nPress \"") + target + "\" next.";
+}
+
+std::string finalTextPrompt(char character)
+{
+    return std::string("Type \"") + character + "\" next.";
 }
 
 char functionKeyMarker(GuideKey key)
 {
-    return key == GuideKey::F6 ? '6' : '5';
+    switch (key) {
+        case GuideKey::Down:
+            return 'D';
+        case GuideKey::Left:
+            return 'L';
+        case GuideKey::Right:
+            return 'R';
+        default:
+            return 'U';
+    }
 }
 
 }  // namespace
@@ -79,12 +108,12 @@ void GuideModel::handleInput(const GuideInputEvent& event)
 
     switch (event.key) {
         case GuideKey::Shift:
-            if (_state.get().exercise_index < 4) {
+            if (_state.get().exercise_index < 4 || _state.get().exercise_index == 7) {
                 handleShift(event.pressed, event.timestamp_ms);
             }
             break;
         case GuideKey::Sym:
-            if (_state.get().exercise_index == 5) {
+            if (_state.get().exercise_index == 5 || _state.get().exercise_index == 7) {
                 handleSym(event.pressed, event.timestamp_ms);
             }
             break;
@@ -93,8 +122,10 @@ void GuideModel::handleInput(const GuideInputEvent& event)
                 handleFn(event.pressed, event.timestamp_ms);
             }
             break;
-        case GuideKey::F5:
-        case GuideKey::F6:
+        case GuideKey::Up:
+        case GuideKey::Down:
+        case GuideKey::Left:
+        case GuideKey::Right:
             if (_state.get().exercise_index == 6) {
                 handleFunctionKey(event);
             }
@@ -140,25 +171,7 @@ void GuideModel::tick(uint32_t now_ms)
 void GuideModel::reset()
 {
     _pressed_characters.fill(false);
-    _shift_down              = false;
-    _shift_tap_invalid       = false;
-    _sym_down                = false;
-    _sym_tap_invalid         = false;
-    _sym_second_tap          = false;
-    _sym_cancel_one_shot     = false;
-    _fn_down                 = false;
-    _fn_tap_invalid          = false;
-    _fn_second_tap           = false;
-    _fn_cancel_one_shot      = false;
-    _shift_mode              = GuideModifierMode::Inactive;
-    _sym_mode                = GuideModifierMode::Inactive;
-    _fn_mode                 = GuideModifierMode::Inactive;
-    _shift_pressed_at        = 0;
-    _first_tap_released_at   = 0;
-    _sym_pressed_at          = 0;
-    _sym_first_tap_at        = 0;
-    _fn_pressed_at           = 0;
-    _fn_first_tap_at         = 0;
+    clearModifierState();
     _success_started_at      = 0;
     _pressed_character_count = 0;
     _state.set(GuideLessonState{});
@@ -343,10 +356,12 @@ void GuideModel::handleShiftPressed(GuideLessonState next, uint32_t timestamp_ms
             publish(std::move(next), false);
             return;
 
+        case GuidePhase::Intro:
         case GuidePhase::HoldAwaitLetter:
         case GuidePhase::ModifierOverview:
         case GuidePhase::SymAwaitSymbol:
         case GuidePhase::FnAwaitKey:
+        case GuidePhase::TextAwaitCharacter:
         case GuidePhase::SuccessHold:
         case GuidePhase::Done:
             publish(std::move(next), false);
@@ -459,10 +474,12 @@ void GuideModel::handleShiftReleased(GuideLessonState next, uint32_t timestamp_m
             }
             return;
 
+        case GuidePhase::Intro:
         case GuidePhase::HoldAwaitShift:
         case GuidePhase::ModifierOverview:
         case GuidePhase::SymAwaitSymbol:
         case GuidePhase::FnAwaitKey:
+        case GuidePhase::TextAwaitCharacter:
         case GuidePhase::SuccessHold:
         case GuidePhase::Done:
             publish(std::move(next), false);
@@ -511,6 +528,8 @@ void GuideModel::handleSymMode(GuideModifierMode mode)
         } else {
             publish(std::move(next), false);
         }
+    } else {
+        publish(std::move(next), false);
     }
 }
 
@@ -616,11 +635,13 @@ void GuideModel::handleFnMode(GuideModifierMode mode)
     next.fn_locked        = mode == GuideModifierMode::Locked;
     if (next.exercise_index == 6) {
         if (next.phase == GuidePhase::LockAwaitUnlock && mode == GuideModifierMode::Inactive) {
-            next.cursor_target = GuideTarget::F6;
+            next.cursor_target = GuideTarget::Right;
             completeExercise(std::move(next), "Unlocked. FN guide complete!");
         } else {
             publish(std::move(next), false);
         }
+    } else {
+        publish(std::move(next), false);
     }
 }
 
@@ -683,7 +704,7 @@ void GuideModel::handleFnReleased(GuideLessonState next, uint32_t timestamp_ms)
                           : next.fn_one_shot ? GuideModifierMode::OneShot
                                              : GuideModifierMode::Inactive;
     if (next.phase == GuidePhase::LockAwaitUnlock && _fn_mode == GuideModifierMode::Inactive) {
-        next.cursor_target = GuideTarget::F6;
+        next.cursor_target = GuideTarget::Right;
         completeExercise(std::move(next), "Unlocked. FN guide complete!");
     } else {
         publish(std::move(next), false);
@@ -692,12 +713,17 @@ void GuideModel::handleFnReleased(GuideLessonState next, uint32_t timestamp_ms)
 
 void GuideModel::handleCharacter(const GuideInputEvent& event)
 {
-    const char character = static_cast<char>(std::toupper(static_cast<unsigned char>(event.character)));
-    if (character == '\0') {
+    if (event.character == '\0') {
         return;
     }
 
     const int exercise_index = _state.get().exercise_index;
+    if (exercise_index == 7) {
+        handleFinalText(event);
+        return;
+    }
+
+    const char character = static_cast<char>(std::toupper(static_cast<unsigned char>(event.character)));
     if (exercise_index == 4 || exercise_index == 6) {
         return;
     }
@@ -808,9 +834,11 @@ void GuideModel::handleCharacterPressed(GuideLessonState next, char character)
             publish(std::move(next), true);
             return;
 
+        case GuidePhase::Intro:
         case GuidePhase::ModifierOverview:
         case GuidePhase::SymAwaitSymbol:
         case GuidePhase::FnAwaitKey:
+        case GuidePhase::TextAwaitCharacter:
         case GuidePhase::SuccessHold:
         case GuidePhase::Done:
             return;
@@ -885,6 +913,76 @@ void GuideModel::handleSymCharacterReleased(GuideLessonState next)
     publish(std::move(next), false);
 }
 
+void GuideModel::handleFinalText(const GuideInputEvent& event)
+{
+    if (event.pressed) {
+        markCharacterDown(event.character);
+        handleFinalTextPressed(_state.get(), resolveFinalCharacter(_state.get(), event.character));
+    } else {
+        markCharacterUp(event.character);
+        handleFinalTextReleased(_state.get());
+    }
+}
+
+void GuideModel::handleFinalTextPressed(GuideLessonState next, char character)
+{
+    if (isSuccessPhase(next.phase)) {
+        return;
+    }
+
+    if (_shift_down) {
+        _shift_tap_invalid = true;
+    }
+    if (_sym_down) {
+        _sym_tap_invalid = true;
+    }
+    if (_shift_mode == GuideModifierMode::OneShot) {
+        _shift_mode = GuideModifierMode::Inactive;
+    }
+    if (next.sym_one_shot) {
+        next.sym_one_shot = false;
+        _sym_mode         = GuideModifierMode::Inactive;
+        _sym_first_tap_at = 0;
+    }
+
+    const char expected = expectedFinalCharacter(next);
+    if (character != expected) {
+        clearModifierState();
+        next.shift_pressed = false;
+        next.shift_locked  = false;
+        next.sym_pressed   = false;
+        next.sym_one_shot  = false;
+        next.sym_locked    = false;
+        next.fn_pressed    = false;
+        next.fn_one_shot   = false;
+        next.fn_locked     = false;
+        next.prompt        = finalTextPrompt(expected);
+        publish(std::move(next), true);
+        return;
+    }
+
+    next.character_pressed = character;
+    next.typed_text.push_back(character);
+    ++next.result_revision;
+    if (next.typed_text.size() == sizeof(kFinalText) - 1) {
+        next.cursor_target = GuideTarget::None;
+        completeExercise(std::move(next), "Perfect! You are ready to type.");
+        return;
+    }
+
+    next.prompt = finalTextPrompt(expectedFinalCharacter(next));
+    publish(std::move(next), false);
+}
+
+void GuideModel::handleFinalTextReleased(GuideLessonState next)
+{
+    if (next.character_pressed == '\0') {
+        return;
+    }
+    next.character_pressed = '\0';
+    publish(std::move(next), false);
+}
+
 void GuideModel::handleFunctionKey(const GuideInputEvent& event)
 {
     const char marker = functionKeyMarker(event.key);
@@ -908,13 +1006,6 @@ void GuideModel::handleFunctionKeyPressed(GuideLessonState next, GuideKey key)
         return;
     }
 
-    const GuideKey expected = expectedFunctionKey(next);
-    if (key != expected) {
-        next.prompt = fnPrompt(expected);
-        publish(std::move(next), true);
-        return;
-    }
-
     if (_fn_down) {
         _fn_tap_invalid = true;
     }
@@ -922,6 +1013,13 @@ void GuideModel::handleFunctionKeyPressed(GuideLessonState next, GuideKey key)
         next.fn_one_shot = false;
         _fn_mode         = GuideModifierMode::Inactive;
         _fn_first_tap_at = 0;
+    }
+
+    const GuideKey expected = expectedFunctionKey(next);
+    if (key != expected) {
+        next.prompt = fnPrompt(expected);
+        publish(std::move(next), true);
+        return;
     }
 
     next.character_pressed = functionKeyMarker(key);
@@ -1001,15 +1099,15 @@ void GuideModel::appendFunctionKey(GuideLessonState next, GuideKey key)
     next.typed_text.push_back(functionKeyMarker(key));
     ++next.result_revision;
 
-    if (next.typed_text.size() >= 2) {
+    if (next.typed_text.size() >= 4) {
         if (_fn_mode == GuideModifierMode::Locked || next.fn_locked) {
             next.phase         = GuidePhase::LockAwaitUnlock;
             next.cursor_target = GuideTarget::Fn;
-            next.prompt        = "\"F5\" and \"F6\" complete.\nTap FN once to unlock.";
+            next.prompt        = "All directions complete.\nTap FN once to unlock.";
             publish(std::move(next), false);
         } else {
-            next.cursor_target = GuideTarget::F6;
-            completeExercise(std::move(next), "Nice! You pressed \"F5\" and \"F6\".");
+            next.cursor_target = GuideTarget::Right;
+            completeExercise(std::move(next), "Nice! You used all four directions.");
         }
         return;
     }
@@ -1026,6 +1124,29 @@ void GuideModel::completeExercise(GuideLessonState next, std::string prompt)
     next.prompt         = std::move(prompt);
     _success_started_at = 0;
     publish(std::move(next), false);
+}
+
+void GuideModel::clearModifierState()
+{
+    _shift_down            = false;
+    _shift_tap_invalid     = false;
+    _shift_mode            = GuideModifierMode::Inactive;
+    _shift_pressed_at      = 0;
+    _first_tap_released_at = 0;
+    _sym_down              = false;
+    _sym_tap_invalid       = false;
+    _sym_second_tap        = false;
+    _sym_cancel_one_shot   = false;
+    _sym_mode              = GuideModifierMode::Inactive;
+    _sym_pressed_at        = 0;
+    _sym_first_tap_at      = 0;
+    _fn_down               = false;
+    _fn_tap_invalid        = false;
+    _fn_second_tap         = false;
+    _fn_cancel_one_shot    = false;
+    _fn_mode               = GuideModifierMode::Inactive;
+    _fn_pressed_at         = 0;
+    _fn_first_tap_at       = 0;
 }
 
 void GuideModel::navigateToExercise(int exercise_index)
@@ -1049,6 +1170,10 @@ void GuideModel::navigateToExercise(int exercise_index)
     _fn_first_tap_at         = 0;
     _success_started_at      = 0;
     _pressed_character_count = 0;
+
+    if (exercise_index == kExerciseCount - 1) {
+        clearModifierState();
+    }
 
     GuideLessonState next = _state.get();
     next.exercise_index   = exercise_index;
@@ -1107,10 +1232,15 @@ void GuideModel::navigateToExercise(int exercise_index)
             next.prompt        = symPrompt('!');
             break;
         case 6:
-        default:
             next.phase         = GuidePhase::FnAwaitKey;
-            next.cursor_target = GuideTarget::F5;
-            next.prompt        = fnPrompt(GuideKey::F5);
+            next.cursor_target = GuideTarget::Up;
+            next.prompt        = fnPrompt(GuideKey::Up);
+            break;
+        case 7:
+        default:
+            next.phase         = GuidePhase::TextAwaitCharacter;
+            next.cursor_target = GuideTarget::None;
+            next.prompt        = finalTextPrompt(kFinalText[0]);
             break;
     }
     publish(std::move(next), false);
@@ -1163,22 +1293,42 @@ void GuideModel::advanceExercise()
             break;
         case 6:
             next.phase         = GuidePhase::FnAwaitKey;
-            next.cursor_target = GuideTarget::F5;
+            next.cursor_target = GuideTarget::Up;
             next.fn_pressed    = _fn_mode == GuideModifierMode::Held;
             next.fn_one_shot   = _fn_mode == GuideModifierMode::OneShot;
             next.fn_locked     = _fn_mode == GuideModifierMode::Locked;
-            next.prompt        = fnPrompt(GuideKey::F5);
+            next.prompt        = fnPrompt(GuideKey::Up);
             _fn_first_tap_at   = 0;
             break;
+        case 7:
+            clearModifierState();
+            next.phase         = GuidePhase::TextAwaitCharacter;
+            next.cursor_target = GuideTarget::None;
+            next.shift_pressed = false;
+            next.shift_locked  = false;
+            next.sym_pressed   = false;
+            next.sym_one_shot  = false;
+            next.sym_locked    = false;
+            next.fn_pressed    = false;
+            next.fn_one_shot   = false;
+            next.fn_locked     = false;
+            next.prompt        = finalTextPrompt(kFinalText[0]);
+            break;
         default:
+            clearModifierState();
             next.exercise_index = kExerciseCount - 1;
             next.phase          = GuidePhase::Done;
-            next.cursor_target  = GuideTarget::F6;
+            next.cursor_target  = GuideTarget::None;
+            next.shift_pressed  = false;
             next.shift_locked   = false;
+            next.sym_pressed    = false;
+            next.sym_one_shot   = false;
             next.sym_locked     = false;
+            next.fn_pressed     = false;
+            next.fn_one_shot    = false;
             next.fn_locked      = false;
-            next.typed_text     = "56";
-            next.prompt         = "FN complete. Press Enter to finish.";
+            next.typed_text     = kFinalText;
+            next.prompt         = "All done. Press Enter to finish.";
             break;
     }
     publish(std::move(next), false);
@@ -1230,7 +1380,51 @@ char GuideModel::expectedSymCharacter(const GuideLessonState& state)
 
 GuideKey GuideModel::expectedFunctionKey(const GuideLessonState& state)
 {
-    return state.typed_text.empty() ? GuideKey::F5 : GuideKey::F6;
+    constexpr std::array<GuideKey, 4> kDirections = {
+        GuideKey::Up,
+        GuideKey::Down,
+        GuideKey::Left,
+        GuideKey::Right,
+    };
+    const size_t index = state.typed_text.size();
+    return index < kDirections.size() ? kDirections[index] : GuideKey::Right;
+}
+
+char GuideModel::resolveFinalCharacter(const GuideLessonState& state, char character) const
+{
+    const bool shift_active = _shift_mode != GuideModifierMode::Inactive || state.shift_locked;
+    const bool sym_active   = _sym_mode != GuideModifierMode::Inactive || state.sym_one_shot || state.sym_locked;
+
+    if (sym_active || shift_active) {
+        switch (character) {
+            case '1':
+                return '!';
+            case '2':
+                if (sym_active) {
+                    return '@';
+                }
+                break;
+            case '3':
+                if (sym_active) {
+                    return '#';
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    const auto value = static_cast<unsigned char>(character);
+    if (!std::isalpha(value)) {
+        return character;
+    }
+    return static_cast<char>(shift_active ? std::toupper(value) : std::tolower(value));
+}
+
+char GuideModel::expectedFinalCharacter(const GuideLessonState& state)
+{
+    const size_t index = state.typed_text.size();
+    return index < sizeof(kFinalText) - 1 ? kFinalText[index] : kFinalText[sizeof(kFinalText) - 2];
 }
 
 GuideTarget GuideModel::targetForCharacter(char character)
@@ -1259,7 +1453,16 @@ GuideTarget GuideModel::targetForSymCharacter(char character)
 
 GuideTarget GuideModel::targetForFunctionKey(GuideKey key)
 {
-    return key == GuideKey::F6 ? GuideTarget::F6 : GuideTarget::F5;
+    switch (key) {
+        case GuideKey::Down:
+            return GuideTarget::Down;
+        case GuideKey::Left:
+            return GuideTarget::Left;
+        case GuideKey::Right:
+            return GuideTarget::Right;
+        default:
+            return GuideTarget::Up;
+    }
 }
 
 }  // namespace keyboard_guide

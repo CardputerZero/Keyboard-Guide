@@ -34,6 +34,7 @@ private:
     GuideViewModel& _view_model;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Container> _root;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _skip_label;
+    std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _intro_title;
     std::unique_ptr<KeyVisual> _shift_key;
     std::unique_ptr<KeyVisual> _sym_key;
     std::unique_ptr<KeyVisual> _fn_key;
@@ -43,8 +44,9 @@ private:
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _result_label;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Container> _divider;
     std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label>, 3> _sequence_labels;
-    std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label>, 2> _fn_sequence_labels;
-    std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Container>, 8> _confetti;
+    std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label>, 4> _fn_sequence_labels;
+    std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label>, 11> _final_text_labels;
+    std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Container>, 24> _confetti;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Image> _cursor;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _prompt_label;
 
@@ -55,6 +57,7 @@ private:
     float _cursor_bob_value                        = 0.0f;
     float _result_pop_progress                     = 1.0f;
     bool _result_pop_active                        = false;
+    bool _whole_text_pop                           = false;
     int _pop_x                                     = 0;
     int _pop_y                                     = 0;
     int _pop_width                                 = 0;
@@ -66,6 +69,7 @@ private:
     void render(const GuideLessonState& state);
     void applyTransforms(uint32_t now_ms);
     void playResultPop(smooth_ui_toolkit::lvgl_cpp::Label& label, int x, int y, int width, int height);
+    void playFinalTextPop();
     void resetPopTarget();
     static float cursorTargetX(const GuideLessonState& state);
     static void onStateChanged(void* context, const GuideLessonState& state);
