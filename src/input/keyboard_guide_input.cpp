@@ -260,6 +260,12 @@ void KeyboardGuideInput::poll()
                     case KEY_FN:
                         key = GuideKey::Fn;
                         break;
+                    case KEY_F5:
+                        key = GuideKey::F5;
+                        break;
+                    case KEY_F6:
+                        key = GuideKey::F6;
+                        break;
                     case KEY_ESC:
                         key = GuideKey::Escape;
                         break;
@@ -277,7 +283,8 @@ void KeyboardGuideInput::poll()
                     continue;
                 }
                 if (key != GuideKey::Unknown) {
-                    if (key == GuideKey::Character && event.value == 1 && _modifier_i2c_fd >= 0) {
+                    if ((key == GuideKey::Character || key == GuideKey::F5 || key == GuideKey::F6) &&
+                        event.value == 1 && _modifier_i2c_fd >= 0) {
                         refreshModifierModes(true);
                     }
                     emit(key, event.value != 0, event.value == 2, character);
@@ -510,6 +517,10 @@ int KeyboardGuideInput::sdlEventWatch(void* context, SDL_Event* event)
         input->emit(GuideKey::Sym, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_F2) {
         input->emit(GuideKey::Fn, pressed, repeated);
+    } else if (scancode == SDL_SCANCODE_F5) {
+        input->emit(GuideKey::F5, pressed, repeated);
+    } else if (scancode == SDL_SCANCODE_F6) {
+        input->emit(GuideKey::F6, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_ESCAPE) {
         input->emit(GuideKey::Escape, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_RETURN || scancode == SDL_SCANCODE_KP_ENTER) {

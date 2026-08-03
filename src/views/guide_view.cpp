@@ -36,14 +36,17 @@ constexpr int kResultY       = 47;
 constexpr int kResultWidth   = 32;
 constexpr int kResultHeight  = 37;
 
-constexpr int kSequenceShiftX = 28;
-constexpr int kDividerX       = 121;
-constexpr int kDividerY       = 48;
-constexpr int kDividerWidth   = 2;
-constexpr int kDividerHeight  = 34;
-constexpr int kSequenceY      = 47;
-constexpr int kSequenceWidth  = 32;
-constexpr int kSequenceHeight = 37;
+constexpr int kSequenceShiftX   = 28;
+constexpr int kDividerX         = 121;
+constexpr int kDividerY         = 48;
+constexpr int kDividerWidth     = 2;
+constexpr int kDividerHeight    = 34;
+constexpr int kSequenceY        = 47;
+constexpr int kSequenceWidth    = 32;
+constexpr int kSequenceHeight   = 37;
+constexpr int kFnSequenceY      = 53;
+constexpr int kFnSequenceWidth  = 44;
+constexpr int kFnSequenceHeight = 26;
 
 constexpr int kOverviewShiftX = 30;
 constexpr int kOverviewSymX   = 124;
@@ -91,6 +94,9 @@ constexpr std::array<int, 3> kSequenceX{145, 190, 235};
 constexpr std::array<float, 3> kSequenceCursorX{170.0f, 215.0f, 260.0f};
 constexpr std::array<char, 3> kShiftSequenceCharacters{'A', 'B', 'C'};
 constexpr std::array<char, 3> kSymSequenceCharacters{'!', '@', '#'};
+constexpr std::array<int, 2> kFnSequenceX{164, 229};
+constexpr std::array<float, 2> kFnSequenceCursorX{189.0f, 254.0f};
+constexpr std::array<const char*, 2> kFnSequenceNames{"F5", "F6"};
 
 constexpr std::array<int, 8> kConfettiDx{-24, -17, -8, 7, 16, 24, -20, 20};
 constexpr std::array<int, 8> kConfettiDy{-7, -20, -25, -25, -19, -6, 8, 8};
@@ -123,9 +129,14 @@ bool isSymExercise(int exercise_index)
     return exercise_index == 5;
 }
 
+bool isFnExercise(int exercise_index)
+{
+    return exercise_index == 6;
+}
+
 bool usesSequenceLayout(int exercise_index)
 {
-    return isShiftSequenceExercise(exercise_index) || isSymExercise(exercise_index);
+    return isShiftSequenceExercise(exercise_index) || isSymExercise(exercise_index) || isFnExercise(exercise_index);
 }
 
 bool isSuccessPhase(GuidePhase phase)
@@ -145,6 +156,11 @@ size_t targetIndex(GuideTarget target)
         default:
             return 0;
     }
+}
+
+size_t fnTargetIndex(GuideTarget target)
+{
+    return target == GuideTarget::F6 ? 1 : 0;
 }
 
 }  // namespace
@@ -400,6 +416,17 @@ void GuideView::onEnter(lv_obj_t* parent)
         label->setTransformPivot(kSequenceWidth / 2, kSequenceHeight / 2);
     }
 
+    for (size_t index = 0; index < _fn_sequence_labels.size(); ++index) {
+        auto& label = _fn_sequence_labels[index];
+        label       = std::make_unique<Label>(_root->raw_ptr());
+        label->setSize(kFnSequenceWidth, kFnSequenceHeight);
+        label->setPos(kFnSequenceX[index], kFnSequenceY);
+        label->setTextAlign(LV_TEXT_ALIGN_CENTER);
+        label->setTextFont(&lv_font_montserrat_20);
+        label->setText(kFnSequenceNames[index]);
+        label->setTransformPivot(kFnSequenceWidth / 2, kFnSequenceHeight / 2);
+    }
+
     for (size_t index = 0; index < _confetti.size(); ++index) {
         auto& piece = _confetti[index];
         piece       = std::make_unique<Container>(_root->raw_ptr());
@@ -474,6 +501,9 @@ void GuideView::onExit()
     for (auto& piece : _confetti) {
         piece.reset();
     }
+    for (auto& label : _fn_sequence_labels) {
+        label.reset();
+    }
     for (auto& label : _sequence_labels) {
         label.reset();
     }
@@ -508,6 +538,7 @@ void GuideView::render(const GuideLessonState& state)
 {
     const bool shift_sequence = isShiftSequenceExercise(state.exercise_index);
     const bool sym_exercise   = isSymExercise(state.exercise_index);
+    const bool fn_exercise    = isFnExercise(state.exercise_index);
     const bool sequence       = usesSequenceLayout(state.exercise_index);
     const bool overview       = state.exercise_index == 4;
     const bool hold           = state.exercise_index == 1;
@@ -526,11 +557,11 @@ void GuideView::render(const GuideLessonState& state)
     _sym_key->setLocked(sym_exercise && state.sym_locked);
     _sym_key->setOneShotArmed(sym_exercise && state.sym_one_shot && !state.sym_locked, lv_tick_get());
 
-    _fn_key->setHidden(!overview);
-    _fn_key->setPos(kOverviewFnX, kKeyY);
-    _fn_key->setPressed(false);
-    _fn_key->setLocked(false);
-    _fn_key->setOneShotArmed(false, lv_tick_get());
+    _fn_key->setHidden(!(overview || fn_exercise));
+    _fn_key->setPos(overview ? kOverviewFnX : kSequenceShiftX, kKeyY);
+    _fn_key->setPressed(fn_exercise && (state.fn_pressed || state.fn_locked));
+    _fn_key->setLocked(fn_exercise && state.fn_locked);
+    _fn_key->setOneShotArmed(fn_exercise && state.fn_one_shot && !state.fn_locked, lv_tick_get());
 
     _letter_key->setHidden(sequence || overview);
     _letter_key->setPos(hold ? kHoldLetterX : kNormalKeyX, kKeyY);
@@ -547,11 +578,19 @@ void GuideView::render(const GuideLessonState& state)
     _divider->setHidden(!sequence);
     for (size_t index = 0; index < _sequence_labels.size(); ++index) {
         auto& label = _sequence_labels[index];
-        label->setHidden(!sequence);
+        label->setHidden(!(shift_sequence || sym_exercise));
         label->setText(std::string(1, sym_exercise ? kSymSequenceCharacters[index] : kShiftSequenceCharacters[index]));
         const bool complete = index < state.typed_text.size();
         const bool current = index == state.typed_text.size() && !success && state.phase != GuidePhase::LockAwaitUnlock;
-        label->setTextColor(lv_color_hex(complete ? kComplete : (current ? kCurrent : kFuture)));
+        const uint32_t complete_color = sym_exercise ? kSymBorder : kComplete;
+        label->setTextColor(lv_color_hex(complete ? complete_color : (current ? kCurrent : kFuture)));
+    }
+    for (size_t index = 0; index < _fn_sequence_labels.size(); ++index) {
+        auto& label         = _fn_sequence_labels[index];
+        const bool complete = index < state.typed_text.size();
+        const bool current = index == state.typed_text.size() && !success && state.phase != GuidePhase::LockAwaitUnlock;
+        label->setHidden(!fn_exercise);
+        label->setTextColor(lv_color_hex(complete ? kFnFill : (current ? kCurrent : kFuture)));
     }
 
     const int prompt_line_count  = 1 + static_cast<int>(std::count(state.prompt.begin(), state.prompt.end(), '\n'));
@@ -575,7 +614,11 @@ void GuideView::render(const GuideLessonState& state)
 
     if (_shown_result_revision != state.result_revision) {
         _shown_result_revision = state.result_revision;
-        if (sequence && !state.typed_text.empty()) {
+        if (fn_exercise && !state.typed_text.empty()) {
+            const size_t index = std::min(state.typed_text.size() - 1, _fn_sequence_labels.size() - 1);
+            playResultPop(*_fn_sequence_labels[index], kFnSequenceX[index], kFnSequenceY, kFnSequenceWidth,
+                          kFnSequenceHeight);
+        } else if (sequence && !state.typed_text.empty()) {
             const size_t index = std::min(state.typed_text.size() - 1, _sequence_labels.size() - 1);
             playResultPop(*_sequence_labels[index], kSequenceX[index], kSequenceY, kSequenceWidth, kSequenceHeight);
         } else if (!sequence) {
@@ -680,6 +723,12 @@ void GuideView::resetPopTarget()
 
 float GuideView::cursorTargetX(const GuideLessonState& state)
 {
+    if (isFnExercise(state.exercise_index)) {
+        if (state.cursor_target == GuideTarget::Fn) {
+            return kSequenceShiftCursorX;
+        }
+        return kFnSequenceCursorX[fnTargetIndex(state.cursor_target)];
+    }
     if (usesSequenceLayout(state.exercise_index)) {
         if (state.cursor_target == GuideTarget::Shift) {
             return kSequenceShiftCursorX;

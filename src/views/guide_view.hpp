@@ -43,6 +43,7 @@ private:
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _result_label;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Container> _divider;
     std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label>, 3> _sequence_labels;
+    std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label>, 2> _fn_sequence_labels;
     std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Container>, 8> _confetti;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Image> _cursor;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _prompt_label;

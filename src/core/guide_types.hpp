@@ -11,6 +11,8 @@ enum class GuideKey {
     Shift,
     Sym,
     Fn,
+    F5,
+    F6,
     Enter,
     Escape,
 };
@@ -34,6 +36,7 @@ enum class GuidePhase {
     LockAwaitUnlock,
     ModifierOverview,
     SymAwaitSymbol,
+    FnAwaitKey,
     SuccessHold,
     Done,
 };
@@ -46,6 +49,9 @@ enum class GuideTarget {
     Bang,
     At,
     Hash,
+    Fn,
+    F5,
+    F6,
 };
 
 struct GuideInputEvent {
@@ -69,6 +75,9 @@ struct GuideLessonState {
     bool sym_pressed            = false;
     bool sym_one_shot           = false;
     bool sym_locked             = false;
+    bool fn_pressed             = false;
+    bool fn_one_shot            = false;
+    bool fn_locked              = false;
     char character_pressed      = '\0';
     bool last_action_error      = false;
     uint32_t attention_revision = 0;
