@@ -25,6 +25,20 @@ namespace {
 #if !KEYBOARD_GUIDE_USE_SDL && defined(__linux__)
 char characterForKeyCode(uint16_t code)
 {
+    switch (code) {
+        case 26:
+        case 183:
+            return '!';
+        case 27:
+        case 184:
+            return '@';
+        case 39:
+        case 185:
+            return '#';
+        default:
+            break;
+    }
+
     if (code >= KEY_A && code <= KEY_L) {
         constexpr char kRow[] = "asdfghjkl";
         return kRow[code - KEY_A];
@@ -216,6 +230,10 @@ int KeyboardGuideInput::sdlEventWatch(void* context, SDL_Event* event)
     const SDL_Scancode scancode = event->key.keysym.scancode;
     if (scancode == SDL_SCANCODE_LSHIFT || scancode == SDL_SCANCODE_RSHIFT) {
         input->emit(GuideKey::Shift, pressed, repeated);
+    } else if (scancode == SDL_SCANCODE_F1) {
+        input->emit(GuideKey::Sym, pressed, repeated);
+    } else if (scancode == SDL_SCANCODE_F2) {
+        input->emit(GuideKey::Fn, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_ESCAPE) {
         input->emit(GuideKey::Escape, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_RETURN || scancode == SDL_SCANCODE_KP_ENTER) {

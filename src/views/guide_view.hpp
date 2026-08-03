@@ -36,6 +36,8 @@ private:
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _back_label;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _skip_label;
     std::unique_ptr<KeyVisual> _shift_key;
+    std::unique_ptr<KeyVisual> _sym_key;
+    std::unique_ptr<KeyVisual> _fn_key;
     std::unique_ptr<KeyVisual> _letter_key;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _plus_label;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _equals_label;

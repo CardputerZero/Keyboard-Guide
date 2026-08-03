@@ -30,6 +30,12 @@ std::string lockedPrompt(char character)
     return "SHIFT is locked. Press " + target + ".";
 }
 
+std::string symPrompt(char character)
+{
+    const std::string target = std::string("\"") + character + '"';
+    return "Use SYM any way you like.\nType " + target + " next.";
+}
+
 }  // namespace
 
 smooth_ui_toolkit::SingleObservable<GuideLessonState>& GuideModel::state()
@@ -45,7 +51,14 @@ void GuideModel::handleInput(const GuideInputEvent& event)
 
     switch (event.key) {
         case GuideKey::Shift:
-            handleShift(event.pressed, event.timestamp_ms);
+            if (_state.get().exercise_index < 4) {
+                handleShift(event.pressed, event.timestamp_ms);
+            }
+            break;
+        case GuideKey::Sym:
+            if (_state.get().exercise_index == 5) {
+                handleSym(event.pressed, event.timestamp_ms);
+            }
             break;
         case GuideKey::Character:
             handleCharacter(event);
@@ -90,8 +103,14 @@ void GuideModel::reset()
     _pressed_characters.fill(false);
     _shift_down              = false;
     _shift_tap_invalid       = false;
+    _sym_down                = false;
+    _sym_tap_invalid         = false;
+    _sym_second_tap          = false;
+    _sym_cancel_one_shot     = false;
     _shift_pressed_at        = 0;
     _first_tap_released_at   = 0;
+    _sym_pressed_at          = 0;
+    _sym_first_tap_at        = 0;
     _success_started_at      = 0;
     _pressed_character_count = 0;
     _state.set(GuideLessonState{});
@@ -185,6 +204,8 @@ void GuideModel::handleShiftPressed(GuideLessonState next, uint32_t timestamp_ms
             return;
 
         case GuidePhase::HoldAwaitLetter:
+        case GuidePhase::ModifierOverview:
+        case GuidePhase::SymAwaitSymbol:
         case GuidePhase::SuccessHold:
         case GuidePhase::Done:
             publish(std::move(next), false);
@@ -293,6 +314,8 @@ void GuideModel::handleShiftReleased(GuideLessonState next, uint32_t timestamp_m
             return;
 
         case GuidePhase::HoldAwaitShift:
+        case GuidePhase::ModifierOverview:
+        case GuidePhase::SymAwaitSymbol:
         case GuidePhase::SuccessHold:
         case GuidePhase::Done:
             publish(std::move(next), false);
@@ -300,10 +323,99 @@ void GuideModel::handleShiftReleased(GuideLessonState next, uint32_t timestamp_m
     }
 }
 
+void GuideModel::handleSym(bool pressed, uint32_t timestamp_ms)
+{
+    if (pressed) {
+        if (_sym_down) {
+            return;
+        }
+        handleSymPressed(_state.get(), timestamp_ms);
+        return;
+    }
+
+    if (!_sym_down) {
+        return;
+    }
+    handleSymReleased(_state.get(), timestamp_ms);
+}
+
+void GuideModel::handleSymPressed(GuideLessonState next, uint32_t timestamp_ms)
+{
+    _sym_down            = true;
+    _sym_tap_invalid     = false;
+    _sym_pressed_at      = timestamp_ms;
+    _sym_second_tap      = false;
+    _sym_cancel_one_shot = false;
+    next.sym_pressed     = true;
+
+    if (next.sym_locked) {
+        publish(std::move(next), false);
+        return;
+    }
+
+    if (next.sym_one_shot) {
+        const bool inside_window = _sym_first_tap_at != 0 && timestamp_ms - _sym_first_tap_at <= kDoubleTapWindowMs;
+        _sym_second_tap          = inside_window;
+        _sym_cancel_one_shot     = !inside_window;
+        next.sym_one_shot        = false;
+    }
+    publish(std::move(next), false);
+}
+
+void GuideModel::handleSymReleased(GuideLessonState next, uint32_t timestamp_ms)
+{
+    _sym_down               = false;
+    next.sym_pressed        = false;
+    const uint32_t held_for = timestamp_ms - _sym_pressed_at;
+    const bool valid_tap    = !_sym_tap_invalid && held_for <= kMaximumTapDurationMs;
+
+    if (next.sym_locked) {
+        if (valid_tap) {
+            next.sym_locked   = false;
+            next.sym_one_shot = false;
+            _sym_first_tap_at = 0;
+        }
+    } else if (_sym_second_tap && valid_tap) {
+        next.sym_locked   = true;
+        next.sym_one_shot = false;
+        _sym_first_tap_at = 0;
+    } else if (_sym_cancel_one_shot) {
+        next.sym_one_shot = false;
+        _sym_first_tap_at = 0;
+    } else if (valid_tap) {
+        next.sym_one_shot = true;
+        _sym_first_tap_at = timestamp_ms;
+    } else {
+        next.sym_one_shot = false;
+        _sym_first_tap_at = 0;
+    }
+
+    _sym_tap_invalid     = false;
+    _sym_second_tap      = false;
+    _sym_cancel_one_shot = false;
+    publish(std::move(next), false);
+}
+
 void GuideModel::handleCharacter(const GuideInputEvent& event)
 {
     const char character = static_cast<char>(std::toupper(static_cast<unsigned char>(event.character)));
     if (character == '\0') {
+        return;
+    }
+
+    const int exercise_index = _state.get().exercise_index;
+    if (exercise_index == 4) {
+        return;
+    }
+
+    if (exercise_index == 5) {
+        if (event.pressed) {
+            markCharacterDown(character);
+            handleSymCharacterPressed(_state.get(), character);
+        } else {
+            markCharacterUp(character);
+            handleSymCharacterReleased(_state.get());
+        }
         return;
     }
 
@@ -406,6 +518,8 @@ void GuideModel::handleCharacterPressed(GuideLessonState next, char character)
             publish(std::move(next), true);
             return;
 
+        case GuidePhase::ModifierOverview:
+        case GuidePhase::SymAwaitSymbol:
         case GuidePhase::SuccessHold:
         case GuidePhase::Done:
             return;
@@ -415,6 +529,59 @@ void GuideModel::handleCharacterPressed(GuideLessonState next, char character)
 void GuideModel::handleCharacterReleased(GuideLessonState next, char character)
 {
     if (next.character_pressed != character) {
+        return;
+    }
+    next.character_pressed = '\0';
+    publish(std::move(next), false);
+}
+
+void GuideModel::handleSymCharacterPressed(GuideLessonState next, char character)
+{
+    if (isSuccessPhase(next.phase)) {
+        return;
+    }
+
+    const bool direct_symbol   = character == '!' || character == '@' || character == '#';
+    const bool modifier_active = _sym_down || next.sym_one_shot || next.sym_locked;
+    char symbol                = character;
+    if (!direct_symbol && modifier_active) {
+        switch (character) {
+            case '1':
+                symbol = '!';
+                break;
+            case '2':
+                symbol = '@';
+                break;
+            case '3':
+                symbol = '#';
+                break;
+            default:
+                break;
+        }
+    }
+
+    if (_sym_down) {
+        _sym_tap_invalid = true;
+    }
+    if (next.sym_one_shot) {
+        next.sym_one_shot = false;
+        _sym_first_tap_at = 0;
+    }
+
+    const char expected = expectedSymCharacter(next);
+    if ((direct_symbol || modifier_active) && symbol == expected) {
+        next.character_pressed = symbol;
+        appendSymCharacter(std::move(next), symbol);
+        return;
+    }
+
+    next.prompt = symPrompt(expected);
+    publish(std::move(next), true);
+}
+
+void GuideModel::handleSymCharacterReleased(GuideLessonState next)
+{
+    if (next.character_pressed == '\0') {
         return;
     }
     next.character_pressed = '\0';
@@ -452,6 +619,24 @@ void GuideModel::appendSequenceCharacter(GuideLessonState next, char character)
     publish(std::move(next), false);
 }
 
+void GuideModel::appendSymCharacter(GuideLessonState next, char character)
+{
+    next.typed_text.push_back(character);
+    ++next.result_revision;
+
+    if (next.typed_text.size() >= 3) {
+        next.cursor_target = GuideTarget::Hash;
+        completeExercise(std::move(next), "Nice! You typed \"!\", \"@\", \"#\".");
+        return;
+    }
+
+    const char target      = expectedSymCharacter(next);
+    next.cursor_target     = targetForSymCharacter(target);
+    next.prompt            = symPrompt(target);
+    next.last_action_error = false;
+    publish(std::move(next), false);
+}
+
 void GuideModel::completeExercise(GuideLessonState next, std::string prompt)
 {
     next.phase          = GuidePhase::SuccessHold;
@@ -465,8 +650,14 @@ void GuideModel::navigateToExercise(int exercise_index)
     _pressed_characters.fill(false);
     _shift_down              = false;
     _shift_tap_invalid       = false;
+    _sym_down                = false;
+    _sym_tap_invalid         = false;
+    _sym_second_tap          = false;
+    _sym_cancel_one_shot     = false;
     _shift_pressed_at        = 0;
     _first_tap_released_at   = 0;
+    _sym_pressed_at          = 0;
+    _sym_first_tap_at        = 0;
     _success_started_at      = 0;
     _pressed_character_count = 0;
 
@@ -475,6 +666,9 @@ void GuideModel::navigateToExercise(int exercise_index)
     next.typed_text.clear();
     next.shift_pressed     = false;
     next.shift_locked      = false;
+    next.sym_pressed       = false;
+    next.sym_one_shot      = false;
+    next.sym_locked        = false;
     next.character_pressed = '\0';
 
     switch (exercise_index) {
@@ -493,10 +687,23 @@ void GuideModel::navigateToExercise(int exercise_index)
             next.cursor_target = GuideTarget::Shift;
             next.prompt        = "Tap SHIFT once for one uppercase key.\nThen press \"A\".";
             break;
-        default:
+        case 3:
             next.phase         = GuidePhase::LockAwaitFirstTap;
             next.cursor_target = GuideTarget::Shift;
             next.prompt        = "Double-tap SHIFT to keep uppercase on.\nThen type \"A\", \"B\", \"C\".";
+            break;
+        case 4:
+            next.phase         = GuidePhase::ModifierOverview;
+            next.cursor_target = GuideTarget::Shift;
+            next.prompt =
+                "SHIFT, SYM, and FN work the same way.\nTap once, double-tap to lock, or hold.\nPress Enter to "
+                "continue.";
+            break;
+        case 5:
+        default:
+            next.phase         = GuidePhase::SymAwaitSymbol;
+            next.cursor_target = GuideTarget::Bang;
+            next.prompt        = symPrompt('!');
             break;
     }
     publish(std::move(next), false);
@@ -529,13 +736,31 @@ void GuideModel::advanceExercise()
             next.prompt            = "Double-tap SHIFT to keep uppercase on.\nThen type \"A\", \"B\", \"C\".";
             _first_tap_released_at = 0;
             break;
+        case 4:
+            next.phase         = GuidePhase::ModifierOverview;
+            next.cursor_target = GuideTarget::Shift;
+            next.shift_pressed = false;
+            next.shift_locked  = false;
+            next.prompt =
+                "SHIFT, SYM, and FN work the same way.\nTap once, double-tap to lock, or hold.\nPress Enter to "
+                "continue.";
+            break;
+        case 5:
+            next.phase         = GuidePhase::SymAwaitSymbol;
+            next.cursor_target = GuideTarget::Bang;
+            next.sym_pressed   = false;
+            next.sym_one_shot  = false;
+            next.sym_locked    = false;
+            next.prompt        = symPrompt('!');
+            _sym_first_tap_at  = 0;
+            break;
         default:
             next.exercise_index = kExerciseCount - 1;
             next.phase          = GuidePhase::Done;
-            next.cursor_target  = GuideTarget::Shift;
+            next.cursor_target  = GuideTarget::Hash;
             next.shift_locked   = false;
-            next.typed_text     = "ABC";
-            next.prompt         = "Done! Hold, one-shot, and lock are ready.";
+            next.typed_text     = "!@#";
+            next.prompt         = "SYM complete. Press Enter to finish.";
             break;
     }
     publish(std::move(next), false);
@@ -563,7 +788,7 @@ void GuideModel::markCharacterUp(char character)
 
 bool GuideModel::inputReleased() const
 {
-    return !_shift_down && _pressed_character_count == 0;
+    return !_shift_down && !_sym_down && _pressed_character_count == 0;
 }
 
 void GuideModel::publish(GuideLessonState next, bool is_error)
@@ -579,6 +804,12 @@ char GuideModel::expectedSequenceCharacter(const GuideLessonState& state)
     return index < 3 ? "ABC"[index] : 'C';
 }
 
+char GuideModel::expectedSymCharacter(const GuideLessonState& state)
+{
+    const size_t index = state.typed_text.size();
+    return index < 3 ? "!@#"[index] : '#';
+}
+
 GuideTarget GuideModel::targetForCharacter(char character)
 {
     switch (character) {
@@ -588,6 +819,18 @@ GuideTarget GuideModel::targetForCharacter(char character)
             return GuideTarget::C;
         default:
             return GuideTarget::A;
+    }
+}
+
+GuideTarget GuideModel::targetForSymCharacter(char character)
+{
+    switch (character) {
+        case '@':
+            return GuideTarget::At;
+        case '#':
+            return GuideTarget::Hash;
+        default:
+            return GuideTarget::Bang;
     }
 }
 

@@ -45,6 +45,10 @@ constexpr int kSequenceY      = 47;
 constexpr int kSequenceWidth  = 32;
 constexpr int kSequenceHeight = 37;
 
+constexpr int kOverviewShiftX = 30;
+constexpr int kOverviewSymX   = 124;
+constexpr int kOverviewFnX    = 218;
+
 constexpr int kCursorY       = 89;
 constexpr int kCursorSize    = 25;
 constexpr int kCursorXOffset = 10;
@@ -66,6 +70,12 @@ constexpr uint32_t kBackground   = 0x000000;
 constexpr uint32_t kShiftFill    = 0x990099;
 constexpr uint32_t kShiftBorder  = 0xEF4FEF;
 constexpr uint32_t kShiftBase    = 0x681568;
+constexpr uint32_t kSymFill      = 0x336699;
+constexpr uint32_t kSymBorder    = 0x72B6FB;
+constexpr uint32_t kSymBase      = 0x24486C;
+constexpr uint32_t kFnFill       = 0xFF6633;
+constexpr uint32_t kFnBorder     = 0xFFC8B5;
+constexpr uint32_t kFnBase       = 0xB94724;
 constexpr uint32_t kLetterFill   = 0x676666;
 constexpr uint32_t kLetterBorder = 0xAFAFAF;
 constexpr uint32_t kLetterBase   = 0x4A4949;
@@ -79,7 +89,8 @@ constexpr uint32_t kNavText      = 0x868686;
 
 constexpr std::array<int, 3> kSequenceX{145, 190, 235};
 constexpr std::array<float, 3> kSequenceCursorX{170.0f, 215.0f, 260.0f};
-constexpr std::array<char, 3> kSequenceCharacters{'A', 'B', 'C'};
+constexpr std::array<char, 3> kShiftSequenceCharacters{'A', 'B', 'C'};
+constexpr std::array<char, 3> kSymSequenceCharacters{'!', '@', '#'};
 
 constexpr std::array<int, 8> kConfettiDx{-24, -17, -8, 7, 16, 24, -20, 20};
 constexpr std::array<int, 8> kConfettiDy{-7, -20, -25, -25, -19, -6, 8, 8};
@@ -102,9 +113,19 @@ void setupContainer(Container& container, lv_opa_t background_opacity)
     container.removeFlag(LV_OBJ_FLAG_SCROLLABLE);
 }
 
-bool isSequenceExercise(int exercise_index)
+bool isShiftSequenceExercise(int exercise_index)
 {
-    return exercise_index >= 2;
+    return exercise_index == 2 || exercise_index == 3;
+}
+
+bool isSymExercise(int exercise_index)
+{
+    return exercise_index == 5;
+}
+
+bool usesSequenceLayout(int exercise_index)
+{
+    return isShiftSequenceExercise(exercise_index) || isSymExercise(exercise_index);
 }
 
 bool isSuccessPhase(GuidePhase phase)
@@ -116,8 +137,10 @@ size_t targetIndex(GuideTarget target)
 {
     switch (target) {
         case GuideTarget::B:
+        case GuideTarget::At:
             return 1;
         case GuideTarget::C:
+        case GuideTarget::Hash:
             return 2;
         default:
             return 0;
@@ -276,6 +299,16 @@ void GuideView::onEnter(lv_obj_t* parent)
     _shift_key->setPos(kHoldShiftX, kKeyY);
     _shift_key->setText("Shift");
 
+    _sym_key = std::make_unique<KeyVisual>(_root->raw_ptr(), kShiftWidth, kSymFill, kSymBorder, kSymBase,
+                                           kKeyHeight / 2, true);
+    _sym_key->setPos(kOverviewSymX, kKeyY);
+    _sym_key->setText("Sym");
+
+    _fn_key =
+        std::make_unique<KeyVisual>(_root->raw_ptr(), kShiftWidth, kFnFill, kFnBorder, kFnBase, kKeyHeight / 2, true);
+    _fn_key->setPos(kOverviewFnX, kKeyY);
+    _fn_key->setText("Fn");
+
     _letter_key = std::make_unique<KeyVisual>(_root->raw_ptr(), kLetterWidth, kLetterFill, kLetterBorder, kLetterBase,
                                               kKeyHeight / 2);
     _letter_key->setPos(kNormalKeyX, kKeyY);
@@ -318,7 +351,7 @@ void GuideView::onEnter(lv_obj_t* parent)
         label->setPos(kSequenceX[index], kSequenceY);
         label->setTextAlign(LV_TEXT_ALIGN_CENTER);
         label->setTextFont(&lv_font_montserrat_30);
-        label->setText(std::string(1, kSequenceCharacters[index]));
+        label->setText(std::string(1, kShiftSequenceCharacters[index]));
         label->setTransformPivot(kSequenceWidth / 2, kSequenceHeight / 2);
     }
 
@@ -404,6 +437,8 @@ void GuideView::onExit()
     _equals_label.reset();
     _plus_label.reset();
     _letter_key.reset();
+    _fn_key.reset();
+    _sym_key.reset();
     _shift_key.reset();
     _skip_label.reset();
     _back_label.reset();
@@ -422,24 +457,39 @@ void GuideView::tick(uint32_t now_ms)
 
 void GuideView::render(const GuideLessonState& state)
 {
-    const bool sequence = isSequenceExercise(state.exercise_index);
-    const bool hold     = state.exercise_index == 1;
-    const bool success  = isSuccessPhase(state.phase);
+    const bool shift_sequence = isShiftSequenceExercise(state.exercise_index);
+    const bool sym_exercise   = isSymExercise(state.exercise_index);
+    const bool sequence       = usesSequenceLayout(state.exercise_index);
+    const bool overview       = state.exercise_index == 4;
+    const bool hold           = state.exercise_index == 1;
+    const bool success        = isSuccessPhase(state.phase);
 
-    _shift_key->setHidden(state.exercise_index == 0);
-    _shift_key->setPos(sequence ? kSequenceShiftX : kHoldShiftX, kKeyY);
-    _shift_key->setPressed(state.shift_pressed || state.shift_locked);
-    _shift_key->setLocked(state.shift_locked);
-    _shift_key->setOneShotArmed(state.phase == GuidePhase::OneShotAwaitLetter && !state.shift_locked);
+    _shift_key->setHidden(!(overview || hold || shift_sequence));
+    _shift_key->setPos(overview ? kOverviewShiftX : (shift_sequence ? kSequenceShiftX : kHoldShiftX), kKeyY);
+    _shift_key->setPressed(!overview && (state.shift_pressed || state.shift_locked));
+    _shift_key->setLocked(!overview && state.shift_locked);
+    _shift_key->setOneShotArmed(!overview && state.phase == GuidePhase::OneShotAwaitLetter && !state.shift_locked);
 
-    _letter_key->setHidden(sequence);
+    _sym_key->setHidden(!(overview || sym_exercise));
+    _sym_key->setPos(overview ? kOverviewSymX : kSequenceShiftX, kKeyY);
+    _sym_key->setPressed(sym_exercise && (state.sym_pressed || state.sym_locked));
+    _sym_key->setLocked(sym_exercise && state.sym_locked);
+    _sym_key->setOneShotArmed(sym_exercise && state.sym_one_shot && !state.sym_locked);
+
+    _fn_key->setHidden(!overview);
+    _fn_key->setPos(kOverviewFnX, kKeyY);
+    _fn_key->setPressed(false);
+    _fn_key->setLocked(false);
+    _fn_key->setOneShotArmed(false);
+
+    _letter_key->setHidden(sequence || overview);
     _letter_key->setPos(hold ? kHoldLetterX : kNormalKeyX, kKeyY);
     _letter_key->setPressed(state.character_pressed == 'A');
 
     _plus_label->setHidden(!hold);
-    _equals_label->setHidden(sequence);
+    _equals_label->setHidden(sequence || overview);
     _equals_label->setX(hold ? kHoldEqualX : kNormalEqualX);
-    _result_label->setHidden(sequence);
+    _result_label->setHidden(sequence || overview);
     _result_label->setX(hold ? kHoldResultX : kNormalResultX);
     _result_label->setText(hold ? "A" : "a");
     _result_label->setTextColor(lv_color_hex(state.typed_text.empty() ? kFuture : kComplete));
@@ -448,20 +498,23 @@ void GuideView::render(const GuideLessonState& state)
     for (size_t index = 0; index < _sequence_labels.size(); ++index) {
         auto& label = _sequence_labels[index];
         label->setHidden(!sequence);
+        label->setText(std::string(1, sym_exercise ? kSymSequenceCharacters[index] : kShiftSequenceCharacters[index]));
         const bool complete = index < state.typed_text.size();
         const bool current = index == state.typed_text.size() && !success && state.phase != GuidePhase::LockAwaitUnlock;
         label->setTextColor(lv_color_hex(complete ? kComplete : (current ? kCurrent : kFuture)));
     }
 
-    const int prompt_line_count  = state.prompt.find('\n') == std::string::npos ? 1 : 2;
+    const int prompt_line_count  = 1 + static_cast<int>(std::count(state.prompt.begin(), state.prompt.end(), '\n'));
     const int prompt_text_height = lv_font_get_line_height(uiFont14()) * prompt_line_count;
     _prompt_label->setHeight(prompt_text_height);
     _prompt_label->setY(kPromptY + (kPromptHeight - prompt_text_height) / 2);
     _prompt_label->setText(state.prompt);
     _prompt_label->setTextColor(lv_color_hex(state.last_action_error ? kError : (success ? kComplete : kPrompt)));
 
-    _cursor->setHidden(false);
-    _cursor_x.move(cursorTargetX(state));
+    _cursor->setHidden(overview);
+    if (!overview) {
+        _cursor_x.move(cursorTargetX(state));
+    }
 
     if (_shown_attention_revision != state.attention_revision) {
         _shown_attention_revision = state.attention_revision;
@@ -577,7 +630,7 @@ void GuideView::resetPopTarget()
 
 float GuideView::cursorTargetX(const GuideLessonState& state)
 {
-    if (isSequenceExercise(state.exercise_index)) {
+    if (usesSequenceLayout(state.exercise_index)) {
         if (state.cursor_target == GuideTarget::Shift) {
             return kSequenceShiftCursorX;
         }

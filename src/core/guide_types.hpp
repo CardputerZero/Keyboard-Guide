@@ -25,6 +25,8 @@ enum class GuidePhase {
     LockAwaitSecondTap,
     LockAwaitLetter,
     LockAwaitUnlock,
+    ModifierOverview,
+    SymAwaitSymbol,
     SuccessHold,
     Done,
 };
@@ -34,6 +36,9 @@ enum class GuideTarget {
     A,
     B,
     C,
+    Bang,
+    At,
+    Hash,
 };
 
 struct GuideInputEvent {
@@ -52,6 +57,9 @@ struct GuideLessonState {
     GuideTarget cursor_target   = GuideTarget::A;
     bool shift_pressed          = false;
     bool shift_locked           = false;
+    bool sym_pressed            = false;
+    bool sym_one_shot           = false;
+    bool sym_locked             = false;
     char character_pressed      = '\0';
     bool last_action_error      = false;
     uint32_t attention_revision = 0;
