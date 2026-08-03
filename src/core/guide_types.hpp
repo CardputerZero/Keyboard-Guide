@@ -46,7 +46,7 @@ struct GuideInputEvent {
 struct GuideLessonState {
     int exercise_index = 0;
     std::string typed_text;
-    std::string prompt          = "Press A to type a";
+    std::string prompt          = "Press \"A\" to type lowercase \"a\".";
     GuidePhase phase            = GuidePhase::PlainAwaitLetter;
     GuideTarget cursor_target   = GuideTarget::A;
     bool shift_pressed          = false;

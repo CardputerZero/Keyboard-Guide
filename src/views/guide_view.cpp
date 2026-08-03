@@ -18,37 +18,38 @@ namespace {
 constexpr int kScreenWidth  = 320;
 constexpr int kScreenHeight = 170;
 
-constexpr int kKeyY          = 22;
-constexpr int kKeyHeight     = 40;
+constexpr int kKeyY          = 32;
+constexpr int kKeyHeight     = 42;
 constexpr int kShiftWidth    = 72;
-constexpr int kLetterWidth   = 44;
-constexpr int kKeyTravel     = 3;
-constexpr int kNormalKeyX    = 90;
+constexpr int kLetterWidth   = 54;
+constexpr int kKeyTravel     = 6;
+constexpr int kNormalKeyX    = 85;
 constexpr int kHoldShiftX    = 16;
-constexpr int kHoldLetterX   = 146;
+constexpr int kHoldLetterX   = 141;
 constexpr int kPlusX         = 105;
 constexpr int kNormalEqualX  = 149;
 constexpr int kHoldEqualX    = 205;
 constexpr int kNormalResultX = 187;
 constexpr int kHoldResultX   = 241;
-constexpr int kOperatorY     = 29;
-constexpr int kResultY       = 24;
+constexpr int kOperatorY     = 39;
+constexpr int kResultY       = 34;
 constexpr int kResultWidth   = 32;
 constexpr int kResultHeight  = 37;
 
 constexpr int kSequenceShiftX = 28;
 constexpr int kDividerX       = 121;
-constexpr int kDividerY       = 25;
+constexpr int kDividerY       = 35;
 constexpr int kDividerWidth   = 2;
 constexpr int kDividerHeight  = 34;
-constexpr int kSequenceY      = 24;
+constexpr int kSequenceY      = 34;
 constexpr int kSequenceWidth  = 32;
 constexpr int kSequenceHeight = 37;
 
-constexpr int kCursorY    = 76;
-constexpr int kCursorSize = 25;
-constexpr int kPromptX    = 8;
-constexpr int kPromptY    = 132;
+constexpr int kCursorY      = 86;
+constexpr int kCursorSize   = 25;
+constexpr int kPromptX      = 8;
+constexpr int kPromptY      = 113;
+constexpr int kPromptHeight = 56;
 
 constexpr float kHoldShiftCursorX     = 79.0f;
 constexpr float kNormalKeyCursorX     = 125.0f;
@@ -59,10 +60,10 @@ constexpr float kTau                  = 6.28318530717958647692f;
 constexpr uint32_t kBackground   = 0x000000;
 constexpr uint32_t kShiftFill    = 0x990099;
 constexpr uint32_t kShiftBorder  = 0xEF4FEF;
-constexpr uint32_t kShiftBase    = 0x510051;
+constexpr uint32_t kShiftBase    = 0x681568;
 constexpr uint32_t kLetterFill   = 0x676666;
 constexpr uint32_t kLetterBorder = 0xAFAFAF;
-constexpr uint32_t kLetterBase   = 0x383737;
+constexpr uint32_t kLetterBase   = 0x4A4949;
 constexpr uint32_t kOperator     = 0x565656;
 constexpr uint32_t kCurrent      = 0xF5F5F5;
 constexpr uint32_t kFuture       = 0x525252;
@@ -123,6 +124,7 @@ struct GuideView::KeyVisual {
     std::unique_ptr<Container> base;
     std::unique_ptr<Container> face;
     std::unique_ptr<Label> label;
+    std::unique_ptr<Container> one_shot_dot;
     std::unique_ptr<Container> lock_shackle;
     std::unique_ptr<Container> lock_body;
     int x        = 0;
@@ -154,6 +156,14 @@ struct GuideView::KeyVisual {
         label->setTextColor(lv_color_hex(kCurrent));
 
         if (supports_lock) {
+            one_shot_dot = std::make_unique<Container>(face->raw_ptr());
+            one_shot_dot->setSize(6, 6);
+            one_shot_dot->setPos(width - 15, 10);
+            setupContainer(*one_shot_dot, LV_OPA_COVER);
+            one_shot_dot->setBgColor(lv_color_hex(kCurrent));
+            one_shot_dot->setRadius(3);
+            one_shot_dot->setHidden(true);
+
             lock_shackle = std::make_unique<Container>(face->raw_ptr());
             lock_shackle->setSize(8, 8);
             lock_shackle->setPos(width - 17, 7);
@@ -201,6 +211,13 @@ struct GuideView::KeyVisual {
         }
     }
 
+    void setOneShotArmed(bool armed)
+    {
+        if (one_shot_dot) {
+            one_shot_dot->setHidden(!armed);
+        }
+    }
+
     void setText(char text)
     {
         label->setText(std::string(1, text));
@@ -237,8 +254,8 @@ void GuideView::onEnter(lv_obj_t* parent)
     _shift_key->setPos(kHoldShiftX, kKeyY);
     _shift_key->setText("Shift");
 
-    _letter_key =
-        std::make_unique<KeyVisual>(_root->raw_ptr(), kLetterWidth, kLetterFill, kLetterBorder, kLetterBase, 8);
+    _letter_key = std::make_unique<KeyVisual>(_root->raw_ptr(), kLetterWidth, kLetterFill, kLetterBorder, kLetterBase,
+                                              kKeyHeight / 2);
     _letter_key->setPos(kNormalKeyX, kKeyY);
     _letter_key->setText('A');
 
@@ -286,7 +303,7 @@ void GuideView::onEnter(lv_obj_t* parent)
     for (size_t index = 0; index < _confetti.size(); ++index) {
         auto& piece = _confetti[index];
         piece       = std::make_unique<Container>(_root->raw_ptr());
-        piece->setSize(index % 2 == 0 ? 3 : 2, index % 2 == 0 ? 2 : 4);
+        piece->setSize(index % 2 == 0 ? 5 : 3, index % 2 == 0 ? 3 : 6);
         setupContainer(*piece, LV_OPA_COVER);
         piece->setBgColor(lv_color_hex(kConfettiColors[index]));
         piece->setRadius(1);
@@ -298,11 +315,11 @@ void GuideView::onEnter(lv_obj_t* parent)
     _cursor->setSize(kCursorSize, kCursorSize);
 
     _prompt_label = std::make_unique<Label>(_root->raw_ptr());
-    _prompt_label->setSize(kScreenWidth - 16, lv_font_get_line_height(uiFont12()) + 3);
+    _prompt_label->setSize(kScreenWidth - 16, kPromptHeight);
     _prompt_label->setPos(kPromptX, kPromptY);
-    _prompt_label->setLongMode(LV_LABEL_LONG_CLIP);
+    _prompt_label->setLongMode(LV_LABEL_LONG_WRAP);
     _prompt_label->setTextAlign(LV_TEXT_ALIGN_CENTER);
-    _prompt_label->setTextFont(uiFont12());
+    _prompt_label->setTextFont(uiFont14());
 
     _cursor_x.stop();
     _cursor_x.springOptions().visualDuration = 0.45f;
@@ -389,6 +406,7 @@ void GuideView::render(const GuideLessonState& state)
     _shift_key->setPos(sequence ? kSequenceShiftX : kHoldShiftX, kKeyY);
     _shift_key->setPressed(state.shift_pressed || state.shift_locked);
     _shift_key->setLocked(state.shift_locked);
+    _shift_key->setOneShotArmed(state.phase == GuidePhase::OneShotAwaitLetter && !state.shift_locked);
 
     _letter_key->setHidden(sequence);
     _letter_key->setPos(hold ? kHoldLetterX : kNormalKeyX, kKeyY);
@@ -411,6 +429,10 @@ void GuideView::render(const GuideLessonState& state)
         label->setTextColor(lv_color_hex(complete ? kComplete : (current ? kCurrent : kFuture)));
     }
 
+    const int prompt_line_count  = state.prompt.find('\n') == std::string::npos ? 1 : 2;
+    const int prompt_text_height = lv_font_get_line_height(uiFont14()) * prompt_line_count;
+    _prompt_label->setHeight(prompt_text_height);
+    _prompt_label->setY(kPromptY + (kPromptHeight - prompt_text_height) / 2);
     _prompt_label->setText(state.prompt);
     _prompt_label->setTextColor(lv_color_hex(state.last_action_error ? kError : (success ? kComplete : kPrompt)));
 
