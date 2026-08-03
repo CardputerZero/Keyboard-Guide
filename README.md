@@ -23,3 +23,11 @@ cmake -S . -B build/cp0 \
   -DCMAKE_TOOLCHAIN_FILE=cmake/aarch64-linux-gnu.cmake
 cmake --build build/cp0 -j"$(nproc)"
 ```
+
+## CardputerZero package
+
+```sh
+./packaging/deb/package_deb.sh
+```
+
+The script cross-compiles an ARM64 executable and writes both the standalone binary and APPLaunch Debian package to `dist/`.

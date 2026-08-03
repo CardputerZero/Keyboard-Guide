@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Keyboard Guide
+Exec=/usr/share/APPLaunch/bin/M5CardputerZero-Keyboard-Guide
+Terminal=false
+Icon=share/images/Keyboard.png
+Type=Application

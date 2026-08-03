@@ -18,7 +18,7 @@ namespace {
 constexpr int kScreenWidth  = 320;
 constexpr int kScreenHeight = 170;
 
-constexpr int kKeyY          = 42;
+constexpr int kKeyY          = 45;
 constexpr int kKeyHeight     = 42;
 constexpr int kShiftWidth    = 72;
 constexpr int kLetterWidth   = 54;
@@ -31,21 +31,21 @@ constexpr int kNormalEqualX  = 149;
 constexpr int kHoldEqualX    = 215;
 constexpr int kNormalResultX = 187;
 constexpr int kHoldResultX   = 251;
-constexpr int kOperatorY     = 49;
-constexpr int kResultY       = 44;
+constexpr int kOperatorY     = 52;
+constexpr int kResultY       = 47;
 constexpr int kResultWidth   = 32;
 constexpr int kResultHeight  = 37;
 
 constexpr int kSequenceShiftX = 28;
 constexpr int kDividerX       = 121;
-constexpr int kDividerY       = 45;
+constexpr int kDividerY       = 48;
 constexpr int kDividerWidth   = 2;
 constexpr int kDividerHeight  = 34;
-constexpr int kSequenceY      = 44;
+constexpr int kSequenceY      = 47;
 constexpr int kSequenceWidth  = 32;
 constexpr int kSequenceHeight = 37;
 
-constexpr int kCursorY       = 86;
+constexpr int kCursorY       = 89;
 constexpr int kCursorSize    = 25;
 constexpr int kCursorXOffset = 10;
 constexpr int kPromptX       = 8;
@@ -53,7 +53,7 @@ constexpr int kPromptY       = 113;
 constexpr int kPromptHeight  = 56;
 
 constexpr int kNavInset      = 6;
-constexpr int kNavY          = 0;
+constexpr int kNavY          = 2;
 constexpr int kNavLabelWidth = 112;
 
 constexpr float kHoldShiftCursorX     = 89.0f;

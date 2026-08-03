@@ -19,14 +19,8 @@ LV_IMAGE_DECLARE(image_cursor_hover);
 LV_IMAGE_DECLARE(image_cursor_pressed);
 
 /* Fonts */
-LV_FONT_DECLARE(font_noto_sans_mono_semibold_12);
-LV_FONT_DECLARE(font_noto_sans_mono_semibold_14);
 LV_FONT_DECLARE(font_noto_sans_sc_semibold_10);
-LV_FONT_DECLARE(font_noto_sans_sc_semibold_12);
 LV_FONT_DECLARE(font_noto_sans_sc_semibold_14);
-LV_FONT_DECLARE(font_noto_sans_jp_semibold_10);
-LV_FONT_DECLARE(font_noto_sans_jp_semibold_12);
-LV_FONT_DECLARE(font_noto_sans_jp_semibold_14);
 
 #ifdef __cplusplus
 }
