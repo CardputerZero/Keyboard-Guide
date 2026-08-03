@@ -50,11 +50,11 @@ void KeyboardGuideApp::tick(uint32_t now_ms)
         return;
     }
     _input.poll();
+    now_ms = lv_tick_get();
     _view_model.tick(now_ms);
     if (_escape_down && now_ms - _escape_pressed_at >= kExitHoldMs) {
-        _quit_requested       = true;
-        _escape_down          = false;
-        _escape_long_consumed = true;
+        _quit_requested = true;
+        _escape_down    = false;
     }
     _view.tick(now_ms);
 }
@@ -68,21 +68,18 @@ void KeyboardGuideApp::onInput(const GuideInputEvent& event)
 {
     if (event.key == GuideKey::Escape) {
         if (event.pressed && !event.repeated && !_escape_down) {
-            _escape_down          = true;
-            _escape_long_consumed = false;
-            _escape_pressed_at    = event.timestamp_ms;
+            _escape_down       = true;
+            _escape_pressed_at = event.timestamp_ms;
         } else if (!event.pressed) {
-            if (_escape_down && !_escape_long_consumed && !_view_model.previousExercise()) {
-                _quit_requested = true;
-            }
-            _escape_down          = false;
-            _escape_long_consumed = false;
+            _escape_down = false;
         }
         return;
     }
     if (event.key == GuideKey::Enter) {
-        if (event.pressed && !event.repeated && !_view_model.nextExercise()) {
-            _quit_requested = true;
+        if (event.pressed && !event.repeated) {
+            if (!_view_model.nextExercise()) {
+                _quit_requested = true;
+            }
         }
         return;
     }

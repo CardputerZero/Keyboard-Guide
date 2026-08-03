@@ -29,7 +29,6 @@ private:
     bool _started               = false;
     bool _quit_requested        = false;
     bool _escape_down           = false;
-    bool _escape_long_consumed  = false;
     uint32_t _escape_pressed_at = 0;
 
     void onInput(const GuideInputEvent& event);

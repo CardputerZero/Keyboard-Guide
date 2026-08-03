@@ -156,9 +156,13 @@ struct GuideView::KeyVisual {
     std::unique_ptr<Container> one_shot_dot;
     std::unique_ptr<Container> lock_shackle;
     std::unique_ptr<Container> lock_body;
-    int x        = 0;
-    int y        = 0;
-    bool pressed = false;
+    int x                     = 0;
+    int y                     = 0;
+    int face_offset           = 0;
+    bool pressed              = false;
+    bool one_shot_armed       = false;
+    bool press_pulse_active   = false;
+    uint32_t pulse_started_at = 0;
 
     KeyVisual(lv_obj_t* parent, int width, uint32_t fill, uint32_t border, uint32_t base_color, int radius,
               bool supports_lock = false)
@@ -217,13 +221,16 @@ struct GuideView::KeyVisual {
         x = new_x;
         y = new_y;
         base->setPos(x, y + kKeyTravel);
-        face->setPos(x, y + (pressed ? kKeyTravel : 0));
+        face->setPos(x, y + face_offset);
     }
 
     void setPressed(bool is_pressed)
     {
         pressed = is_pressed;
-        face->setY(y + (pressed ? kKeyTravel : 0));
+        if (pressed) {
+            press_pulse_active = false;
+        }
+        setFaceOffset(pressed ? kKeyTravel : (press_pulse_active ? face_offset : 0));
     }
 
     void setHidden(bool hidden)
@@ -240,11 +247,47 @@ struct GuideView::KeyVisual {
         }
     }
 
-    void setOneShotArmed(bool armed)
+    void setOneShotArmed(bool armed, uint32_t now_ms)
     {
+        if (armed && !one_shot_armed && !pressed) {
+            press_pulse_active = true;
+            pulse_started_at   = now_ms;
+            setFaceOffset(kKeyTravel);
+        }
+        one_shot_armed = armed;
         if (one_shot_dot) {
             one_shot_dot->setHidden(!armed);
         }
+    }
+
+    void update(uint32_t now_ms)
+    {
+        if (pressed) {
+            setFaceOffset(kKeyTravel);
+            return;
+        }
+        if (!press_pulse_active) {
+            setFaceOffset(0);
+            return;
+        }
+
+        constexpr uint32_t kPressedDurationMs = 120;
+        constexpr uint32_t kReleaseDurationMs = 180;
+        constexpr uint32_t kPulseDurationMs   = kPressedDurationMs + kReleaseDurationMs;
+        const uint32_t elapsed                = now_ms - pulse_started_at;
+        if (elapsed >= kPulseDurationMs) {
+            press_pulse_active = false;
+            setFaceOffset(0);
+            return;
+        }
+
+        float travel = 1.0f;
+        if (elapsed >= kPressedDurationMs) {
+            const float progress =
+                static_cast<float>(elapsed - kPressedDurationMs) / static_cast<float>(kReleaseDurationMs);
+            travel = 1.0f - smooth_ui_toolkit::ease::ease_out_quad(progress);
+        }
+        setFaceOffset(static_cast<int>(std::lround(travel * static_cast<float>(kKeyTravel))));
     }
 
     void setText(char text)
@@ -255,6 +298,16 @@ struct GuideView::KeyVisual {
     void setText(const char* text)
     {
         label->setText(text);
+    }
+
+private:
+    void setFaceOffset(int offset)
+    {
+        if (face_offset == offset) {
+            return;
+        }
+        face_offset = offset;
+        face->setY(y + face_offset);
     }
 };
 
@@ -277,14 +330,6 @@ void GuideView::onEnter(lv_obj_t* parent)
     _root->setBgColor(lv_color_hex(kBackground));
     _root->setRadius(0);
     setupContainer(*_root, LV_OPA_COVER);
-
-    _back_label = std::make_unique<Label>(_root->raw_ptr());
-    _back_label->setSize(kNavLabelWidth, lv_font_get_line_height(uiFont10()) + 2);
-    _back_label->setPos(kNavInset, kNavY);
-    _back_label->setTextAlign(LV_TEXT_ALIGN_LEFT);
-    _back_label->setTextFont(uiFont10());
-    _back_label->setTextColor(lv_color_hex(kNavText));
-    _back_label->setText("< Back: Esc");
 
     _skip_label = std::make_unique<Label>(_root->raw_ptr());
     _skip_label->setSize(kNavLabelWidth, lv_font_get_line_height(uiFont10()) + 2);
@@ -378,7 +423,7 @@ void GuideView::onEnter(lv_obj_t* parent)
 
     _cursor_x.stop();
     _cursor_x.springOptions().visualDuration = 0.45f;
-    _cursor_x.springOptions().bounce         = 0.35f;
+    _cursor_x.springOptions().bounce         = 0.18f;
     _cursor_x.teleport(kNormalKeyCursorX);
     _cursor_x.begin();
 
@@ -441,12 +486,16 @@ void GuideView::onExit()
     _sym_key.reset();
     _shift_key.reset();
     _skip_label.reset();
-    _back_label.reset();
     _root.reset();
 }
 
 void GuideView::tick(uint32_t now_ms)
 {
+    _shift_key->update(now_ms);
+    _sym_key->update(now_ms);
+    _fn_key->update(now_ms);
+    _letter_key->update(now_ms);
+
     const float now_seconds = static_cast<float>(now_ms) / 1000.0f;
     _cursor_bob.update(now_seconds);
     if (_result_pop_active) {
@@ -468,19 +517,20 @@ void GuideView::render(const GuideLessonState& state)
     _shift_key->setPos(overview ? kOverviewShiftX : (shift_sequence ? kSequenceShiftX : kHoldShiftX), kKeyY);
     _shift_key->setPressed(!overview && (state.shift_pressed || state.shift_locked));
     _shift_key->setLocked(!overview && state.shift_locked);
-    _shift_key->setOneShotArmed(!overview && state.phase == GuidePhase::OneShotAwaitLetter && !state.shift_locked);
+    _shift_key->setOneShotArmed(!overview && state.phase == GuidePhase::OneShotAwaitLetter && !state.shift_locked,
+                                lv_tick_get());
 
     _sym_key->setHidden(!(overview || sym_exercise));
     _sym_key->setPos(overview ? kOverviewSymX : kSequenceShiftX, kKeyY);
     _sym_key->setPressed(sym_exercise && (state.sym_pressed || state.sym_locked));
     _sym_key->setLocked(sym_exercise && state.sym_locked);
-    _sym_key->setOneShotArmed(sym_exercise && state.sym_one_shot && !state.sym_locked);
+    _sym_key->setOneShotArmed(sym_exercise && state.sym_one_shot && !state.sym_locked, lv_tick_get());
 
     _fn_key->setHidden(!overview);
     _fn_key->setPos(kOverviewFnX, kKeyY);
     _fn_key->setPressed(false);
     _fn_key->setLocked(false);
-    _fn_key->setOneShotArmed(false);
+    _fn_key->setOneShotArmed(false, lv_tick_get());
 
     _letter_key->setHidden(sequence || overview);
     _letter_key->setPos(hold ? kHoldLetterX : kNormalKeyX, kKeyY);

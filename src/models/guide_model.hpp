@@ -32,6 +32,8 @@ private:
     bool _sym_tap_invalid           = false;
     bool _sym_second_tap            = false;
     bool _sym_cancel_one_shot       = false;
+    GuideModifierMode _shift_mode   = GuideModifierMode::Inactive;
+    GuideModifierMode _sym_mode     = GuideModifierMode::Inactive;
     uint32_t _shift_pressed_at      = 0;
     uint32_t _first_tap_released_at = 0;
     uint32_t _sym_pressed_at        = 0;
@@ -40,9 +42,11 @@ private:
     int _pressed_character_count    = 0;
 
     void handleShift(bool pressed, uint32_t timestamp_ms);
+    void handleShiftMode(GuideModifierMode mode);
     void handleShiftPressed(GuideLessonState next, uint32_t timestamp_ms);
     void handleShiftReleased(GuideLessonState next, uint32_t timestamp_ms);
     void handleSym(bool pressed, uint32_t timestamp_ms);
+    void handleSymMode(GuideModifierMode mode);
     void handleSymPressed(GuideLessonState next, uint32_t timestamp_ms);
     void handleSymReleased(GuideLessonState next, uint32_t timestamp_ms);
     void handleCharacter(const GuideInputEvent& event);

@@ -15,6 +15,13 @@ enum class GuideKey {
     Escape,
 };
 
+enum class GuideModifierMode {
+    Inactive,
+    OneShot,
+    Locked,
+    Held,
+};
+
 enum class GuidePhase {
     PlainAwaitLetter,
     HoldAwaitShift,
@@ -42,11 +49,13 @@ enum class GuideTarget {
 };
 
 struct GuideInputEvent {
-    GuideKey key          = GuideKey::Unknown;
-    char character        = '\0';
-    bool pressed          = false;
-    bool repeated         = false;
-    uint32_t timestamp_ms = 0;
+    GuideKey key                    = GuideKey::Unknown;
+    char character                  = '\0';
+    bool pressed                    = false;
+    bool repeated                   = false;
+    uint32_t timestamp_ms           = 0;
+    bool has_modifier_mode          = false;
+    GuideModifierMode modifier_mode = GuideModifierMode::Inactive;
 };
 
 struct GuideLessonState {
