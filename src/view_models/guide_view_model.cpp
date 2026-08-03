@@ -22,6 +22,11 @@ void GuideViewModel::onInput(const GuideInputEvent& event)
     _model.handleInput(event);
 }
 
+void GuideViewModel::tick(uint32_t now_ms)
+{
+    _model.tick(now_ms);
+}
+
 smooth_ui_toolkit::SingleObservable<GuideLessonState>& GuideViewModel::state()
 {
     return _model.state();

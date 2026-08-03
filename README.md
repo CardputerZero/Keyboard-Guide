@@ -2,7 +2,7 @@
 
 Interactive keyboard onboarding for M5CardputerZero, built with LVGL, Smooth UI Toolkit, and MVVM.
 
-The current first-page prototype teaches one-shot Shift by guiding the user through `Shift + A`, `Shift + B`, and `Shift + C` with animated step feedback.
+The first lesson contrasts normal and one-shot Shift input through `[A] = a`, `[Shift] -> [A] = A`, `[B] = b`, and `[Shift] -> [B] = B`.
 
 ## Desktop build
 

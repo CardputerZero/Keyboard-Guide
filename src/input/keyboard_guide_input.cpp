@@ -214,14 +214,14 @@ int KeyboardGuideInput::sdlEventWatch(void* context, SDL_Event* event)
         input->emit(GuideKey::Shift, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_ESCAPE) {
         input->emit(GuideKey::Escape, pressed, repeated);
-    } else if (pressed && scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z) {
-        input->emit(GuideKey::Character, true, repeated, static_cast<char>('a' + scancode - SDL_SCANCODE_A));
-    } else if (pressed && scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_9) {
-        input->emit(GuideKey::Character, true, repeated, static_cast<char>('1' + scancode - SDL_SCANCODE_1));
-    } else if (pressed && scancode == SDL_SCANCODE_0) {
-        input->emit(GuideKey::Character, true, repeated, '0');
-    } else if (pressed && scancode == SDL_SCANCODE_SPACE) {
-        input->emit(GuideKey::Character, true, repeated, ' ');
+    } else if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z) {
+        input->emit(GuideKey::Character, pressed, repeated, static_cast<char>('a' + scancode - SDL_SCANCODE_A));
+    } else if (scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_9) {
+        input->emit(GuideKey::Character, pressed, repeated, static_cast<char>('1' + scancode - SDL_SCANCODE_1));
+    } else if (scancode == SDL_SCANCODE_0) {
+        input->emit(GuideKey::Character, pressed, repeated, '0');
+    } else if (scancode == SDL_SCANCODE_SPACE) {
+        input->emit(GuideKey::Character, pressed, repeated, ' ');
     }
     return 1;
 }

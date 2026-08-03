@@ -50,6 +50,7 @@ void KeyboardGuideApp::tick(uint32_t now_ms)
         return;
     }
     _input.poll();
+    _view_model.tick(now_ms);
     if (_escape_down && now_ms - _escape_pressed_at >= kExitHoldMs) {
         _quit_requested = true;
         _escape_down    = false;

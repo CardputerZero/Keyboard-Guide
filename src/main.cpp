@@ -38,6 +38,10 @@ int main()
     lv_obj_invalidate(lv_screen_active());
     while (!app.quitRequested()) {
         lv_timer_handler();
+        if (!lv_display_get_default()) {
+            spdlog::info("Keyboard Guide: display closed");
+            break;
+        }
         app.tick(lv_tick_get());
         usleep(8000);
     }

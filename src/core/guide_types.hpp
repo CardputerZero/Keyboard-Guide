@@ -23,10 +23,13 @@ struct GuideInputEvent {
 };
 
 struct GuideLessonState {
-    int step_index = 0;
+    int exercise_index = 0;
     std::string typed_text;
-    std::string prompt          = "Tap SHIFT once";
+    std::string prompt          = "Press A to type a";
+    bool awaiting_character     = true;
     bool modifier_pressed       = false;
+    bool character_pressed      = false;
+    bool exercise_complete      = false;
     bool completed              = false;
     bool last_action_error      = false;
     uint32_t attention_revision = 0;
