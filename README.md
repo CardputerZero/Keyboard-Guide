@@ -2,7 +2,7 @@
 
 Interactive keyboard onboarding for M5CardputerZero, built with LVGL, Smooth UI Toolkit, and MVVM.
 
-The first lesson contrasts normal and one-shot Shift input through `[A] = a`, `[Shift] -> [A] = A`, `[B] = b`, and `[Shift] -> [B] = B`.
+The first lesson covers lowercase input, held Shift, one-shot Shift, and double-tap Shift lock through four interactive exercises.
 
 ## Desktop build
 

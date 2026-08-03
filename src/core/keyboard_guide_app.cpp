@@ -29,7 +29,7 @@ bool KeyboardGuideApp::start(lv_obj_t* parent)
         spdlog::warn("Keyboard Guide: keyboard input is unavailable");
     }
     _started = true;
-    spdlog::info("Keyboard Guide: started first lesson");
+    spdlog::info("Keyboard Guide: started keyboard lesson");
     return true;
 }
 

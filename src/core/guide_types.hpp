@@ -14,6 +14,27 @@ enum class GuideKey {
     Escape,
 };
 
+enum class GuidePhase {
+    PlainAwaitLetter,
+    HoldAwaitShift,
+    HoldAwaitLetter,
+    OneShotAwaitShift,
+    OneShotAwaitLetter,
+    LockAwaitFirstTap,
+    LockAwaitSecondTap,
+    LockAwaitLetter,
+    LockAwaitUnlock,
+    SuccessHold,
+    Done,
+};
+
+enum class GuideTarget {
+    Shift,
+    A,
+    B,
+    C,
+};
+
 struct GuideInputEvent {
     GuideKey key          = GuideKey::Unknown;
     char character        = '\0';
@@ -26,13 +47,14 @@ struct GuideLessonState {
     int exercise_index = 0;
     std::string typed_text;
     std::string prompt          = "Press A to type a";
-    bool awaiting_character     = true;
-    bool modifier_pressed       = false;
-    bool character_pressed      = false;
-    bool exercise_complete      = false;
-    bool completed              = false;
+    GuidePhase phase            = GuidePhase::PlainAwaitLetter;
+    GuideTarget cursor_target   = GuideTarget::A;
+    bool shift_pressed          = false;
+    bool shift_locked           = false;
+    char character_pressed      = '\0';
     bool last_action_error      = false;
     uint32_t attention_revision = 0;
+    uint32_t result_revision    = 0;
 };
 
 }  // namespace keyboard_guide

@@ -5,7 +5,6 @@
 
 #include <lvgl/lvgl_cpp/image.hpp>
 #include <lvgl/lvgl_cpp/label.hpp>
-#include <lvgl/lvgl_cpp/line.hpp>
 #include <lvgl/lvgl_cpp/obj.hpp>
 
 #include <algorithm>
@@ -16,37 +15,46 @@
 namespace keyboard_guide {
 namespace {
 
-constexpr int kScreenWidth   = 320;
-constexpr int kScreenHeight  = 170;
-constexpr int kKeyY          = 28;
-constexpr int kKeyHeight     = 40;
-constexpr int kShiftX        = 16;
-constexpr int kShiftWidth    = 72;
-constexpr int kArrowX        = 106;
-constexpr int kArrowY        = 42;
-constexpr int kArrowWidth    = 22;
-constexpr int kArrowHeight   = 12;
-constexpr int kLetterWidth   = 44;
-constexpr int kNormalKeyX    = 90;
-constexpr int kShiftedKeyX   = 146;
-constexpr int kNormalEqualX  = 149;
-constexpr int kShiftEqualX   = 205;
-constexpr int kNormalResultX = 187;
-constexpr int kShiftResultX  = 241;
-constexpr int kResultWidth   = 32;
-constexpr int kOperatorY     = 35;
-constexpr int kResultY       = 30;
-constexpr int kResultHeight  = 37;
-constexpr int kCursorY       = 80;
-constexpr int kCursorSize    = 25;
-constexpr int kPromptX       = 8;
-constexpr int kPromptY       = 132;
-constexpr int kKeyTravel     = 3;
+constexpr int kScreenWidth  = 320;
+constexpr int kScreenHeight = 170;
 
-constexpr float kShiftCursorX      = 79.0f;
-constexpr float kNormalKeyCursorX  = 125.0f;
-constexpr float kShiftedKeyCursorX = 181.0f;
-constexpr float kTau               = 6.28318530717958647692f;
+constexpr int kKeyY          = 22;
+constexpr int kKeyHeight     = 40;
+constexpr int kShiftWidth    = 72;
+constexpr int kLetterWidth   = 44;
+constexpr int kKeyTravel     = 3;
+constexpr int kNormalKeyX    = 90;
+constexpr int kHoldShiftX    = 16;
+constexpr int kHoldLetterX   = 146;
+constexpr int kPlusX         = 105;
+constexpr int kNormalEqualX  = 149;
+constexpr int kHoldEqualX    = 205;
+constexpr int kNormalResultX = 187;
+constexpr int kHoldResultX   = 241;
+constexpr int kOperatorY     = 29;
+constexpr int kResultY       = 24;
+constexpr int kResultWidth   = 32;
+constexpr int kResultHeight  = 37;
+
+constexpr int kSequenceShiftX = 28;
+constexpr int kDividerX       = 121;
+constexpr int kDividerY       = 25;
+constexpr int kDividerWidth   = 2;
+constexpr int kDividerHeight  = 34;
+constexpr int kSequenceY      = 24;
+constexpr int kSequenceWidth  = 32;
+constexpr int kSequenceHeight = 37;
+
+constexpr int kCursorY    = 76;
+constexpr int kCursorSize = 25;
+constexpr int kPromptX    = 8;
+constexpr int kPromptY    = 132;
+
+constexpr float kHoldShiftCursorX     = 79.0f;
+constexpr float kNormalKeyCursorX     = 125.0f;
+constexpr float kHoldKeyCursorX       = 181.0f;
+constexpr float kSequenceShiftCursorX = 91.0f;
+constexpr float kTau                  = 6.28318530717958647692f;
 
 constexpr uint32_t kBackground   = 0x000000;
 constexpr uint32_t kShiftFill    = 0x990099;
@@ -55,17 +63,16 @@ constexpr uint32_t kShiftBase    = 0x510051;
 constexpr uint32_t kLetterFill   = 0x676666;
 constexpr uint32_t kLetterBorder = 0xAFAFAF;
 constexpr uint32_t kLetterBase   = 0x383737;
-constexpr uint32_t kArrow        = 0x565656;
+constexpr uint32_t kOperator     = 0x565656;
 constexpr uint32_t kCurrent      = 0xF5F5F5;
 constexpr uint32_t kFuture       = 0x525252;
 constexpr uint32_t kComplete     = 0x3FCC75;
 constexpr uint32_t kPrompt       = 0xA7A7A7;
 constexpr uint32_t kError        = 0xFF6B6B;
 
-constexpr std::array<lv_point_precise_t, 5> kArrowPoints{
-    lv_point_precise_t{0, 6},  lv_point_precise_t{20, 6},  lv_point_precise_t{15, 1},
-    lv_point_precise_t{20, 6}, lv_point_precise_t{15, 11},
-};
+constexpr std::array<int, 3> kSequenceX{145, 190, 235};
+constexpr std::array<float, 3> kSequenceCursorX{170.0f, 215.0f, 260.0f};
+constexpr std::array<char, 3> kSequenceCharacters{'A', 'B', 'C'};
 
 constexpr std::array<int, 8> kConfettiDx{-24, -17, -8, 7, 16, 24, -20, 20};
 constexpr std::array<int, 8> kConfettiDy{-7, -20, -25, -25, -19, -6, 8, 8};
@@ -76,7 +83,6 @@ constexpr std::array<uint32_t, 8> kConfettiColors{
 using smooth_ui_toolkit::lvgl_cpp::Container;
 using smooth_ui_toolkit::lvgl_cpp::Image;
 using smooth_ui_toolkit::lvgl_cpp::Label;
-using smooth_ui_toolkit::lvgl_cpp::Line;
 
 void setupContainer(Container& container, lv_opa_t background_opacity)
 {
@@ -89,20 +95,26 @@ void setupContainer(Container& container, lv_opa_t background_opacity)
     container.removeFlag(LV_OBJ_FLAG_SCROLLABLE);
 }
 
-bool requiresShift(int exercise_index)
+bool isSequenceExercise(int exercise_index)
 {
-    return (exercise_index % 2) == 1;
+    return exercise_index >= 2;
 }
 
-char exerciseKey(int exercise_index)
+bool isSuccessPhase(GuidePhase phase)
 {
-    return exercise_index < 2 ? 'A' : 'B';
+    return phase == GuidePhase::SuccessHold || phase == GuidePhase::Done;
 }
 
-char exerciseResult(int exercise_index)
+size_t targetIndex(GuideTarget target)
 {
-    const char key = exerciseKey(exercise_index);
-    return requiresShift(exercise_index) ? key : static_cast<char>(key - 'A' + 'a');
+    switch (target) {
+        case GuideTarget::B:
+            return 1;
+        case GuideTarget::C:
+            return 2;
+        default:
+            return 0;
+    }
 }
 
 }  // namespace
@@ -111,11 +123,14 @@ struct GuideView::KeyVisual {
     std::unique_ptr<Container> base;
     std::unique_ptr<Container> face;
     std::unique_ptr<Label> label;
+    std::unique_ptr<Container> lock_shackle;
+    std::unique_ptr<Container> lock_body;
     int x        = 0;
     int y        = 0;
     bool pressed = false;
 
-    KeyVisual(lv_obj_t* parent, int width, uint32_t fill, uint32_t border, uint32_t base_color, int radius)
+    KeyVisual(lv_obj_t* parent, int width, uint32_t fill, uint32_t border, uint32_t base_color, int radius,
+              bool supports_lock = false)
     {
         base = std::make_unique<Container>(parent);
         base->setSize(width, kKeyHeight);
@@ -137,6 +152,25 @@ struct GuideView::KeyVisual {
         label->setTextAlign(LV_TEXT_ALIGN_CENTER);
         label->setTextFont(uiFont14());
         label->setTextColor(lv_color_hex(kCurrent));
+
+        if (supports_lock) {
+            lock_shackle = std::make_unique<Container>(face->raw_ptr());
+            lock_shackle->setSize(8, 8);
+            lock_shackle->setPos(width - 17, 7);
+            setupContainer(*lock_shackle, LV_OPA_TRANSP);
+            lock_shackle->setBorderColor(lv_color_hex(kCurrent));
+            lock_shackle->setBorderWidth(2);
+            lock_shackle->setRadius(4);
+            lock_shackle->setHidden(true);
+
+            lock_body = std::make_unique<Container>(face->raw_ptr());
+            lock_body->setSize(10, 8);
+            lock_body->setPos(width - 18, 13);
+            setupContainer(*lock_body, LV_OPA_COVER);
+            lock_body->setBgColor(lv_color_hex(kCurrent));
+            lock_body->setRadius(2);
+            lock_body->setHidden(true);
+        }
     }
 
     void setPos(int new_x, int new_y)
@@ -157,6 +191,14 @@ struct GuideView::KeyVisual {
     {
         base->setHidden(hidden);
         face->setHidden(hidden);
+    }
+
+    void setLocked(bool locked)
+    {
+        if (lock_shackle && lock_body) {
+            lock_shackle->setHidden(!locked);
+            lock_body->setHidden(!locked);
+        }
     }
 
     void setText(char text)
@@ -191,27 +233,29 @@ void GuideView::onEnter(lv_obj_t* parent)
     setupContainer(*_root, LV_OPA_COVER);
 
     _shift_key = std::make_unique<KeyVisual>(_root->raw_ptr(), kShiftWidth, kShiftFill, kShiftBorder, kShiftBase,
-                                             kKeyHeight / 2);
-    _shift_key->setPos(kShiftX, kKeyY);
+                                             kKeyHeight / 2, true);
+    _shift_key->setPos(kHoldShiftX, kKeyY);
     _shift_key->setText("Shift");
-
-    _arrow = std::make_unique<Line>(_root->raw_ptr());
-    _arrow->setSize(kArrowWidth, kArrowHeight);
-    _arrow->setPos(kArrowX, kArrowY);
-    _arrow->setPoints(kArrowPoints.data(), static_cast<uint32_t>(kArrowPoints.size()));
-    _arrow->setLineColor(lv_color_hex(kArrow));
-    _arrow->setLineWidth(2);
-    _arrow->setLineRounded(true);
 
     _letter_key =
         std::make_unique<KeyVisual>(_root->raw_ptr(), kLetterWidth, kLetterFill, kLetterBorder, kLetterBase, 8);
+    _letter_key->setPos(kNormalKeyX, kKeyY);
+    _letter_key->setText('A');
+
+    _plus_label = std::make_unique<Label>(_root->raw_ptr());
+    _plus_label->setSize(22, lv_font_get_line_height(&lv_font_montserrat_20) + 4);
+    _plus_label->setPos(kPlusX, kOperatorY);
+    _plus_label->setTextAlign(LV_TEXT_ALIGN_CENTER);
+    _plus_label->setTextFont(&lv_font_montserrat_20);
+    _plus_label->setTextColor(lv_color_hex(kOperator));
+    _plus_label->setText("+");
 
     _equals_label = std::make_unique<Label>(_root->raw_ptr());
     _equals_label->setSize(22, lv_font_get_line_height(&lv_font_montserrat_20) + 4);
     _equals_label->setPos(kNormalEqualX, kOperatorY);
     _equals_label->setTextAlign(LV_TEXT_ALIGN_CENTER);
     _equals_label->setTextFont(&lv_font_montserrat_20);
-    _equals_label->setTextColor(lv_color_hex(kArrow));
+    _equals_label->setTextColor(lv_color_hex(kOperator));
     _equals_label->setText("=");
 
     _result_label = std::make_unique<Label>(_root->raw_ptr());
@@ -220,6 +264,24 @@ void GuideView::onEnter(lv_obj_t* parent)
     _result_label->setTextAlign(LV_TEXT_ALIGN_CENTER);
     _result_label->setTextFont(&lv_font_montserrat_30);
     _result_label->setTransformPivot(kResultWidth / 2, kResultHeight / 2);
+
+    _divider = std::make_unique<Container>(_root->raw_ptr());
+    _divider->setSize(kDividerWidth, kDividerHeight);
+    _divider->setPos(kDividerX, kDividerY);
+    setupContainer(*_divider, LV_OPA_COVER);
+    _divider->setBgColor(lv_color_hex(kOperator));
+    _divider->setRadius(1);
+
+    for (size_t index = 0; index < _sequence_labels.size(); ++index) {
+        auto& label = _sequence_labels[index];
+        label       = std::make_unique<Label>(_root->raw_ptr());
+        label->setSize(kSequenceWidth, lv_font_get_line_height(&lv_font_montserrat_30) + 4);
+        label->setPos(kSequenceX[index], kSequenceY);
+        label->setTextAlign(LV_TEXT_ALIGN_CENTER);
+        label->setTextFont(&lv_font_montserrat_30);
+        label->setText(std::string(1, kSequenceCharacters[index]));
+        label->setTransformPivot(kSequenceWidth / 2, kSequenceHeight / 2);
+    }
 
     for (size_t index = 0; index < _confetti.size(); ++index) {
         auto& piece = _confetti[index];
@@ -272,7 +334,9 @@ void GuideView::onEnter(lv_obj_t* parent)
     _result_pop_progress = 1.0f;
     _result_pop_active   = false;
 
-    render(_view_model.state().get());
+    const GuideLessonState& state = _view_model.state().get();
+    _shown_result_revision        = state.result_revision;
+    render(state);
     _view_model.state().observe(this, onStateChanged);
 }
 
@@ -282,17 +346,25 @@ void GuideView::onExit()
     _cursor_x.stop();
     _cursor_bob.cancel();
     _result_pop.cancel();
-    _result_pop_progress = 1.0f;
-    _result_pop_active   = false;
+    resetPopTarget();
+    _result_pop_progress      = 1.0f;
+    _result_pop_active        = false;
+    _shown_result_revision    = 0;
+    _shown_attention_revision = 0;
+    _shake_started_at         = 0;
     _prompt_label.reset();
     _cursor.reset();
     for (auto& piece : _confetti) {
         piece.reset();
     }
+    for (auto& label : _sequence_labels) {
+        label.reset();
+    }
+    _divider.reset();
     _result_label.reset();
     _equals_label.reset();
+    _plus_label.reset();
     _letter_key.reset();
-    _arrow.reset();
     _shift_key.reset();
     _root.reset();
 }
@@ -309,26 +381,35 @@ void GuideView::tick(uint32_t now_ms)
 
 void GuideView::render(const GuideLessonState& state)
 {
-    const bool success_started = state.exercise_complete && (!_shown_state.exercise_complete ||
-                                                             _shown_state.exercise_index != state.exercise_index);
-    _shown_state               = state;
+    const bool sequence = isSequenceExercise(state.exercise_index);
+    const bool hold     = state.exercise_index == 1;
+    const bool success  = isSuccessPhase(state.phase);
 
-    const bool with_shift = requiresShift(state.exercise_index);
-    const bool success    = state.exercise_complete || state.completed;
-    const int key_x       = with_shift ? kShiftedKeyX : kNormalKeyX;
-    const int equal_x     = with_shift ? kShiftEqualX : kNormalEqualX;
-    const int result_x    = with_shift ? kShiftResultX : kNormalResultX;
+    _shift_key->setHidden(state.exercise_index == 0);
+    _shift_key->setPos(sequence ? kSequenceShiftX : kHoldShiftX, kKeyY);
+    _shift_key->setPressed(state.shift_pressed || state.shift_locked);
+    _shift_key->setLocked(state.shift_locked);
 
-    _shift_key->setHidden(!with_shift);
-    _shift_key->setPressed(state.modifier_pressed);
-    _arrow->setHidden(!with_shift);
-    _letter_key->setPos(key_x, kKeyY);
-    _letter_key->setPressed(state.character_pressed);
-    _letter_key->setText(exerciseKey(state.exercise_index));
-    _equals_label->setX(equal_x);
-    _result_label->setX(result_x);
-    _result_label->setText(std::string(1, exerciseResult(state.exercise_index)));
-    _result_label->setTextColor(lv_color_hex(success ? kComplete : kFuture));
+    _letter_key->setHidden(sequence);
+    _letter_key->setPos(hold ? kHoldLetterX : kNormalKeyX, kKeyY);
+    _letter_key->setPressed(state.character_pressed == 'A');
+
+    _plus_label->setHidden(!hold);
+    _equals_label->setHidden(sequence);
+    _equals_label->setX(hold ? kHoldEqualX : kNormalEqualX);
+    _result_label->setHidden(sequence);
+    _result_label->setX(hold ? kHoldResultX : kNormalResultX);
+    _result_label->setText(hold ? "A" : "a");
+    _result_label->setTextColor(lv_color_hex(state.typed_text.empty() ? kFuture : kComplete));
+
+    _divider->setHidden(!sequence);
+    for (size_t index = 0; index < _sequence_labels.size(); ++index) {
+        auto& label = _sequence_labels[index];
+        label->setHidden(!sequence);
+        const bool complete = index < state.typed_text.size();
+        const bool current = index == state.typed_text.size() && !success && state.phase != GuidePhase::LockAwaitUnlock;
+        label->setTextColor(lv_color_hex(complete ? kComplete : (current ? kCurrent : kFuture)));
+    }
 
     _prompt_label->setText(state.prompt);
     _prompt_label->setTextColor(lv_color_hex(state.last_action_error ? kError : (success ? kComplete : kPrompt)));
@@ -343,8 +424,14 @@ void GuideView::render(const GuideLessonState& state)
         }
     }
 
-    if (success_started) {
-        playResultPop();
+    if (_shown_result_revision != state.result_revision) {
+        _shown_result_revision = state.result_revision;
+        if (sequence && !state.typed_text.empty()) {
+            const size_t index = std::min(state.typed_text.size() - 1, _sequence_labels.size() - 1);
+            playResultPop(*_sequence_labels[index], kSequenceX[index], kSequenceY, kSequenceWidth, kSequenceHeight);
+        } else if (!sequence) {
+            playResultPop(*_result_label, hold ? kHoldResultX : kNormalResultX, kResultY, kResultWidth, kResultHeight);
+        }
     }
 }
 
@@ -363,6 +450,13 @@ void GuideView::applyTransforms(uint32_t now_ms)
     lv_obj_move_foreground(_cursor->raw_ptr());
     _prompt_label->setX(kPromptX + shake_offset);
 
+    if (!_pop_label) {
+        for (auto& piece : _confetti) {
+            piece->setHidden(true);
+        }
+        return;
+    }
+
     const float pop_progress = _result_pop_active ? std::clamp(_result_pop_progress, 0.0f, 1.0f) : 1.0f;
     float result_scale       = 1.0f;
     if (pop_progress < 0.28f) {
@@ -376,17 +470,16 @@ void GuideView::applyTransforms(uint32_t now_ms)
         result_scale         = 0.94f + 0.06f * smooth_ui_toolkit::ease::ease_out_back(progress);
     }
     const int scale = static_cast<int>(std::lround(result_scale * 256.0f));
-    lv_obj_set_style_transform_scale_x(_result_label->raw_ptr(), scale, LV_PART_MAIN);
-    lv_obj_set_style_transform_scale_y(_result_label->raw_ptr(), scale, LV_PART_MAIN);
-    _result_label->setY(kResultY - static_cast<int>(std::lround(std::sin(pop_progress * kTau * 0.5f) * 4.0f)));
-    lv_obj_move_foreground(_result_label->raw_ptr());
+    lv_obj_set_style_transform_scale_x(_pop_label->raw_ptr(), scale, LV_PART_MAIN);
+    lv_obj_set_style_transform_scale_y(_pop_label->raw_ptr(), scale, LV_PART_MAIN);
+    _pop_label->setY(_pop_y - static_cast<int>(std::lround(std::sin(pop_progress * kTau * 0.5f) * 4.0f)));
+    lv_obj_move_foreground(_pop_label->raw_ptr());
 
     const bool show_confetti = _result_pop_active && pop_progress > 0.03f && pop_progress < 0.94f;
     const float burst        = std::sin(std::min(pop_progress / 0.72f, 1.0f) * kTau * 0.25f);
     const float fade         = 1.0f - std::clamp((pop_progress - 0.42f) / 0.52f, 0.0f, 1.0f);
-    const int result_x       = requiresShift(_shown_state.exercise_index) ? kShiftResultX : kNormalResultX;
-    const int origin_x       = result_x + kResultWidth / 2;
-    const int origin_y       = kResultY + kResultHeight / 2;
+    const int origin_x       = _pop_x + _pop_width / 2;
+    const int origin_y       = _pop_y + _pop_height / 2;
     for (size_t index = 0; index < _confetti.size(); ++index) {
         auto& piece = _confetti[index];
         piece->setHidden(!show_confetti);
@@ -402,9 +495,15 @@ void GuideView::applyTransforms(uint32_t now_ms)
     }
 }
 
-void GuideView::playResultPop()
+void GuideView::playResultPop(Label& label, int x, int y, int width, int height)
 {
     _result_pop.cancel();
+    resetPopTarget();
+    _pop_label           = &label;
+    _pop_x               = x;
+    _pop_y               = y;
+    _pop_width           = width;
+    _pop_height          = height;
     _result_pop_progress = 0.0f;
     _result_pop_active   = true;
     _result_pop.start    = 0.0f;
@@ -413,14 +512,35 @@ void GuideView::playResultPop()
     _result_pop.play();
 }
 
+void GuideView::resetPopTarget()
+{
+    if (_pop_label) {
+        if (_pop_label->isValid()) {
+            lv_obj_set_style_transform_scale_x(_pop_label->raw_ptr(), 256, LV_PART_MAIN);
+            lv_obj_set_style_transform_scale_y(_pop_label->raw_ptr(), 256, LV_PART_MAIN);
+            _pop_label->setY(_pop_y);
+        }
+        _pop_label = nullptr;
+    }
+    for (auto& piece : _confetti) {
+        if (piece && piece->isValid()) {
+            piece->setHidden(true);
+        }
+    }
+}
+
 float GuideView::cursorTargetX(const GuideLessonState& state)
 {
-    const bool with_shift = requiresShift(state.exercise_index);
-    const bool success    = state.exercise_complete || state.completed;
-    if (with_shift && !state.awaiting_character && !success) {
-        return kShiftCursorX;
+    if (isSequenceExercise(state.exercise_index)) {
+        if (state.cursor_target == GuideTarget::Shift) {
+            return kSequenceShiftCursorX;
+        }
+        return kSequenceCursorX[targetIndex(state.cursor_target)];
     }
-    return with_shift ? kShiftedKeyCursorX : kNormalKeyCursorX;
+    if (state.cursor_target == GuideTarget::Shift) {
+        return kHoldShiftCursorX;
+    }
+    return state.exercise_index == 1 ? kHoldKeyCursorX : kNormalKeyCursorX;
 }
 
 void GuideView::onStateChanged(void* context, const GuideLessonState& state)
