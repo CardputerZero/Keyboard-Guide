@@ -163,6 +163,10 @@ void KeyboardGuideInput::poll()
                     case KEY_ESC:
                         key = GuideKey::Escape;
                         break;
+                    case KEY_ENTER:
+                    case KEY_KPENTER:
+                        key = GuideKey::Enter;
+                        break;
                     default:
                         character = characterForKeyCode(event.code);
                         key       = character == '\0' ? GuideKey::Unknown : GuideKey::Character;
@@ -214,6 +218,8 @@ int KeyboardGuideInput::sdlEventWatch(void* context, SDL_Event* event)
         input->emit(GuideKey::Shift, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_ESCAPE) {
         input->emit(GuideKey::Escape, pressed, repeated);
+    } else if (scancode == SDL_SCANCODE_RETURN || scancode == SDL_SCANCODE_KP_ENTER) {
+        input->emit(GuideKey::Enter, pressed, repeated);
     } else if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z) {
         input->emit(GuideKey::Character, pressed, repeated, static_cast<char>('a' + scancode - SDL_SCANCODE_A));
     } else if (scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_9) {

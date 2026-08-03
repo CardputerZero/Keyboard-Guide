@@ -97,6 +97,26 @@ void GuideModel::reset()
     _state.set(GuideLessonState{});
 }
 
+bool GuideModel::previousExercise()
+{
+    const int exercise_index = _state.get().exercise_index;
+    if (exercise_index <= 0) {
+        return false;
+    }
+    navigateToExercise(exercise_index - 1);
+    return true;
+}
+
+bool GuideModel::nextExercise()
+{
+    const int exercise_index = _state.get().exercise_index;
+    if (exercise_index >= kExerciseCount - 1) {
+        return false;
+    }
+    navigateToExercise(exercise_index + 1);
+    return true;
+}
+
 void GuideModel::handleShift(bool pressed, uint32_t timestamp_ms)
 {
     if (pressed) {
@@ -437,6 +457,48 @@ void GuideModel::completeExercise(GuideLessonState next, std::string prompt)
     next.phase          = GuidePhase::SuccessHold;
     next.prompt         = std::move(prompt);
     _success_started_at = 0;
+    publish(std::move(next), false);
+}
+
+void GuideModel::navigateToExercise(int exercise_index)
+{
+    _pressed_characters.fill(false);
+    _shift_down              = false;
+    _shift_tap_invalid       = false;
+    _shift_pressed_at        = 0;
+    _first_tap_released_at   = 0;
+    _success_started_at      = 0;
+    _pressed_character_count = 0;
+
+    GuideLessonState next = _state.get();
+    next.exercise_index   = exercise_index;
+    next.typed_text.clear();
+    next.shift_pressed     = false;
+    next.shift_locked      = false;
+    next.character_pressed = '\0';
+
+    switch (exercise_index) {
+        case 0:
+            next.phase         = GuidePhase::PlainAwaitLetter;
+            next.cursor_target = GuideTarget::A;
+            next.prompt        = "Press \"A\" to type lowercase \"a\".";
+            break;
+        case 1:
+            next.phase         = GuidePhase::HoldAwaitShift;
+            next.cursor_target = GuideTarget::Shift;
+            next.prompt        = "Hold SHIFT while pressing \"A\".\nThis types uppercase \"A\".";
+            break;
+        case 2:
+            next.phase         = GuidePhase::OneShotAwaitShift;
+            next.cursor_target = GuideTarget::Shift;
+            next.prompt        = "Tap SHIFT once for one uppercase key.\nThen press \"A\".";
+            break;
+        default:
+            next.phase         = GuidePhase::LockAwaitFirstTap;
+            next.cursor_target = GuideTarget::Shift;
+            next.prompt        = "Double-tap SHIFT to keep uppercase on.\nThen type \"A\", \"B\", \"C\".";
+            break;
+    }
     publish(std::move(next), false);
 }
 

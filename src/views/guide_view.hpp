@@ -33,6 +33,8 @@ private:
 
     GuideViewModel& _view_model;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Container> _root;
+    std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _back_label;
+    std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _skip_label;
     std::unique_ptr<KeyVisual> _shift_key;
     std::unique_ptr<KeyVisual> _letter_key;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _plus_label;

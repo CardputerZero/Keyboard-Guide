@@ -16,6 +16,8 @@ public:
     void handleInput(const GuideInputEvent& event);
     void tick(uint32_t now_ms);
     void reset();
+    bool previousExercise();
+    bool nextExercise();
 
 private:
     static constexpr uint32_t kMaximumTapDurationMs = 650;
@@ -39,6 +41,7 @@ private:
     void handleCharacterReleased(GuideLessonState next, char character);
     void appendSequenceCharacter(GuideLessonState next, char character);
     void completeExercise(GuideLessonState next, std::string prompt);
+    void navigateToExercise(int exercise_index);
     void advanceExercise();
     void markCharacterDown(char character);
     void markCharacterUp(char character);

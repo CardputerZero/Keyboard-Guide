@@ -11,6 +11,7 @@ enum class GuideKey {
     Shift,
     Sym,
     Fn,
+    Enter,
     Escape,
 };
 

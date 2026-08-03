@@ -12,6 +12,8 @@ public:
     void onExit();
     void onInput(const GuideInputEvent& event);
     void tick(uint32_t now_ms);
+    bool previousExercise();
+    bool nextExercise();
 
     smooth_ui_toolkit::SingleObservable<GuideLessonState>& state();
 

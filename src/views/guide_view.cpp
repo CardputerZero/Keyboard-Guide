@@ -18,42 +18,47 @@ namespace {
 constexpr int kScreenWidth  = 320;
 constexpr int kScreenHeight = 170;
 
-constexpr int kKeyY          = 32;
+constexpr int kKeyY          = 42;
 constexpr int kKeyHeight     = 42;
 constexpr int kShiftWidth    = 72;
 constexpr int kLetterWidth   = 54;
 constexpr int kKeyTravel     = 6;
 constexpr int kNormalKeyX    = 85;
-constexpr int kHoldShiftX    = 16;
-constexpr int kHoldLetterX   = 141;
-constexpr int kPlusX         = 105;
+constexpr int kHoldShiftX    = 26;
+constexpr int kHoldLetterX   = 151;
+constexpr int kPlusX         = 115;
 constexpr int kNormalEqualX  = 149;
-constexpr int kHoldEqualX    = 205;
+constexpr int kHoldEqualX    = 215;
 constexpr int kNormalResultX = 187;
-constexpr int kHoldResultX   = 241;
-constexpr int kOperatorY     = 39;
-constexpr int kResultY       = 34;
+constexpr int kHoldResultX   = 251;
+constexpr int kOperatorY     = 49;
+constexpr int kResultY       = 44;
 constexpr int kResultWidth   = 32;
 constexpr int kResultHeight  = 37;
 
 constexpr int kSequenceShiftX = 28;
 constexpr int kDividerX       = 121;
-constexpr int kDividerY       = 35;
+constexpr int kDividerY       = 45;
 constexpr int kDividerWidth   = 2;
 constexpr int kDividerHeight  = 34;
-constexpr int kSequenceY      = 34;
+constexpr int kSequenceY      = 44;
 constexpr int kSequenceWidth  = 32;
 constexpr int kSequenceHeight = 37;
 
-constexpr int kCursorY      = 86;
-constexpr int kCursorSize   = 25;
-constexpr int kPromptX      = 8;
-constexpr int kPromptY      = 113;
-constexpr int kPromptHeight = 56;
+constexpr int kCursorY       = 86;
+constexpr int kCursorSize    = 25;
+constexpr int kCursorXOffset = 10;
+constexpr int kPromptX       = 8;
+constexpr int kPromptY       = 113;
+constexpr int kPromptHeight  = 56;
 
-constexpr float kHoldShiftCursorX     = 79.0f;
+constexpr int kNavInset      = 6;
+constexpr int kNavY          = 0;
+constexpr int kNavLabelWidth = 112;
+
+constexpr float kHoldShiftCursorX     = 89.0f;
 constexpr float kNormalKeyCursorX     = 125.0f;
-constexpr float kHoldKeyCursorX       = 181.0f;
+constexpr float kHoldKeyCursorX       = 191.0f;
 constexpr float kSequenceShiftCursorX = 91.0f;
 constexpr float kTau                  = 6.28318530717958647692f;
 
@@ -68,8 +73,9 @@ constexpr uint32_t kOperator     = 0x565656;
 constexpr uint32_t kCurrent      = 0xF5F5F5;
 constexpr uint32_t kFuture       = 0x525252;
 constexpr uint32_t kComplete     = 0x3FCC75;
-constexpr uint32_t kPrompt       = 0xA7A7A7;
+constexpr uint32_t kPrompt       = 0xD5D5D5;
 constexpr uint32_t kError        = 0xFF6B6B;
+constexpr uint32_t kNavText      = 0x868686;
 
 constexpr std::array<int, 3> kSequenceX{145, 190, 235};
 constexpr std::array<float, 3> kSequenceCursorX{170.0f, 215.0f, 260.0f};
@@ -158,7 +164,7 @@ struct GuideView::KeyVisual {
         if (supports_lock) {
             one_shot_dot = std::make_unique<Container>(face->raw_ptr());
             one_shot_dot->setSize(6, 6);
-            one_shot_dot->setPos(width - 15, 10);
+            one_shot_dot->setPos(width - 17, 10);
             setupContainer(*one_shot_dot, LV_OPA_COVER);
             one_shot_dot->setBgColor(lv_color_hex(kCurrent));
             one_shot_dot->setRadius(3);
@@ -248,6 +254,22 @@ void GuideView::onEnter(lv_obj_t* parent)
     _root->setBgColor(lv_color_hex(kBackground));
     _root->setRadius(0);
     setupContainer(*_root, LV_OPA_COVER);
+
+    _back_label = std::make_unique<Label>(_root->raw_ptr());
+    _back_label->setSize(kNavLabelWidth, lv_font_get_line_height(uiFont10()) + 2);
+    _back_label->setPos(kNavInset, kNavY);
+    _back_label->setTextAlign(LV_TEXT_ALIGN_LEFT);
+    _back_label->setTextFont(uiFont10());
+    _back_label->setTextColor(lv_color_hex(kNavText));
+    _back_label->setText("< Back: Esc");
+
+    _skip_label = std::make_unique<Label>(_root->raw_ptr());
+    _skip_label->setSize(kNavLabelWidth, lv_font_get_line_height(uiFont10()) + 2);
+    _skip_label->setPos(kScreenWidth - kNavInset - kNavLabelWidth, kNavY);
+    _skip_label->setTextAlign(LV_TEXT_ALIGN_RIGHT);
+    _skip_label->setTextFont(uiFont10());
+    _skip_label->setTextColor(lv_color_hex(kNavText));
+    _skip_label->setText("Skip: Enter >");
 
     _shift_key = std::make_unique<KeyVisual>(_root->raw_ptr(), kShiftWidth, kShiftFill, kShiftBorder, kShiftBase,
                                              kKeyHeight / 2, true);
@@ -383,6 +405,8 @@ void GuideView::onExit()
     _plus_label.reset();
     _letter_key.reset();
     _shift_key.reset();
+    _skip_label.reset();
+    _back_label.reset();
     _root.reset();
 }
 
@@ -467,7 +491,7 @@ void GuideView::applyTransforms(uint32_t now_ms)
     }
 
     const int bob_offset = static_cast<int>(std::lround(_cursor_bob_value * 4.0f));
-    const int cursor_x   = static_cast<int>(std::lround(_cursor_x.value())) - bob_offset;
+    const int cursor_x   = static_cast<int>(std::lround(_cursor_x.value())) + kCursorXOffset - bob_offset;
     _cursor->setPos(cursor_x, kCursorY - bob_offset);
     lv_obj_move_foreground(_cursor->raw_ptr());
     _prompt_label->setX(kPromptX + shake_offset);

@@ -27,6 +27,16 @@ void GuideViewModel::tick(uint32_t now_ms)
     _model.tick(now_ms);
 }
 
+bool GuideViewModel::previousExercise()
+{
+    return _model.previousExercise();
+}
+
+bool GuideViewModel::nextExercise()
+{
+    return _model.nextExercise();
+}
+
 smooth_ui_toolkit::SingleObservable<GuideLessonState>& GuideViewModel::state()
 {
     return _model.state();
