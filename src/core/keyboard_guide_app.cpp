@@ -5,6 +5,37 @@
 #include <spdlog/spdlog.h>
 
 namespace keyboard_guide {
+namespace {
+
+std::size_t modifierIndex(GuideKey key)
+{
+    switch (key) {
+        case GuideKey::Shift:
+            return 0;
+        case GuideKey::Sym:
+            return 1;
+        case GuideKey::Fn:
+            return 2;
+        default:
+            return 3;
+    }
+}
+
+bool modifierLocked(const GuideLessonState& state, GuideKey key)
+{
+    switch (key) {
+        case GuideKey::Shift:
+            return state.shift_locked;
+        case GuideKey::Sym:
+            return state.sym_locked;
+        case GuideKey::Fn:
+            return state.fn_locked;
+        default:
+            return false;
+    }
+}
+
+}  // namespace
 
 KeyboardGuideApp::KeyboardGuideApp() : _view_model(_model), _view(_view_model)
 {
@@ -28,6 +59,7 @@ bool KeyboardGuideApp::start(lv_obj_t* parent)
     if (!_input.openDefault()) {
         spdlog::warn("Keyboard Guide: keyboard input is unavailable");
     }
+    _sound.start();
     _quit_requested     = false;
     _escape_down        = false;
     _enter_down         = false;
@@ -43,6 +75,7 @@ void KeyboardGuideApp::stop()
         return;
     }
     _input.close();
+    _sound.stop();
     _view.onExit();
     _view_model.onExit();
     _started = false;
@@ -78,6 +111,7 @@ void KeyboardGuideApp::onInput(const GuideInputEvent& event)
         if (event.pressed && !event.repeated && !_escape_down) {
             _escape_down       = true;
             _escape_pressed_at = event.timestamp_ms;
+            _sound.play(SoundCue::Typing);
         } else if (!event.pressed) {
             _escape_down = false;
         }
@@ -89,6 +123,7 @@ void KeyboardGuideApp::onInput(const GuideInputEvent& event)
                 _enter_down         = true;
                 _enter_hold_handled = false;
                 _enter_pressed_at   = event.timestamp_ms;
+                _sound.play(SoundCue::Typing);
             } else if (!event.pressed && _enter_down) {
                 const bool held = _enter_hold_handled || event.timestamp_ms - _enter_pressed_at >= kEnterHoldMs;
                 _enter_down     = false;
@@ -99,13 +134,70 @@ void KeyboardGuideApp::onInput(const GuideInputEvent& event)
                 }
             }
         } else if (event.pressed && !event.repeated) {
-            if (!_view_model.nextExercise()) {
+            if (_view_model.nextExercise()) {
+                _sound.play(SoundCue::Typing);
+            } else {
                 _quit_requested = true;
             }
         }
         return;
     }
+    const GuideLessonState before = _model.state().get();
     _view_model.onInput(event);
+    playInputSound(event, before, _model.state().get());
+}
+
+void KeyboardGuideApp::playInputSound(const GuideInputEvent& event, const GuideLessonState& before,
+                                      const GuideLessonState& after)
+{
+    if (after.attention_revision != before.attention_revision && after.last_action_error) {
+        _sound.play(SoundCue::Error);
+        if (event.has_modifier_mode) {
+            const std::size_t index = modifierIndex(event.key);
+            if (index < _modifier_modes.size()) {
+                _modifier_modes[index] = event.modifier_mode;
+            }
+        }
+        return;
+    }
+
+    const std::size_t index = modifierIndex(event.key);
+    if (index < _modifier_modes.size()) {
+        const bool was_locked = modifierLocked(before, event.key);
+        const bool is_locked  = modifierLocked(after, event.key);
+        if (!was_locked && is_locked) {
+            _sound.play(SoundCue::Lock);
+        } else if (was_locked && !is_locked) {
+            _sound.play(SoundCue::Unlock);
+        } else if (event.has_modifier_mode) {
+            const GuideModifierMode previous_mode = _modifier_modes[index];
+            if (event.modifier_mode == GuideModifierMode::OneShot || event.modifier_mode == GuideModifierMode::Held ||
+                (event.modifier_mode == GuideModifierMode::Locked && previous_mode != GuideModifierMode::Held)) {
+                _sound.play(SoundCue::Typing);
+            }
+        } else if (event.pressed && !event.repeated) {
+            _sound.play(SoundCue::Typing);
+        }
+
+        if (event.has_modifier_mode) {
+            _modifier_modes[index] = event.modifier_mode;
+        }
+        return;
+    }
+
+    if (!event.pressed || event.repeated || event.key == GuideKey::Unknown) {
+        return;
+    }
+    const bool result_completed = after.result_revision != before.result_revision;
+    const bool final_exercise   = after.exercise_index == GuideModel::kExerciseCount - 1;
+    const bool final_completed  = final_exercise && result_completed && after.phase == GuidePhase::SuccessHold;
+    if (final_completed) {
+        _sound.play(SoundCue::FinalComplete);
+    } else if (result_completed && !final_exercise) {
+        _sound.play(SoundCue::Complete);
+    } else {
+        _sound.play(SoundCue::Typing);
+    }
 }
 
 bool KeyboardGuideApp::onIntroPage()

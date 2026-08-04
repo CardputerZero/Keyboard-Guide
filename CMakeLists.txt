@@ -22,6 +22,7 @@ set(KEYBOARD_GUIDE_SRC_DIR "${KEYBOARD_GUIDE_ROOT}/src")
 set(KEYBOARD_GUIDE_LVGL_DIR "${KEYBOARD_GUIDE_DEPS_DIR}/lvgl")
 set(KEYBOARD_GUIDE_SPDLOG_DIR "${KEYBOARD_GUIDE_DEPS_DIR}/spdlog")
 set(KEYBOARD_GUIDE_SMOOTH_UI_DIR "${KEYBOARD_GUIDE_DEPS_DIR}/smooth_ui_toolkit")
+set(KEYBOARD_GUIDE_MINIAUDIO_DIR "${KEYBOARD_GUIDE_DEPS_DIR}/miniaudio")
 set(KEYBOARD_GUIDE_SYSTEM_LIBS ${CMAKE_DL_LIBS})
 
 if(UNIX AND NOT APPLE)
@@ -58,6 +59,9 @@ foreach(required_dir IN LISTS KEYBOARD_GUIDE_LVGL_DIR KEYBOARD_GUIDE_SPDLOG_DIR 
         message(FATAL_ERROR "Missing dependency: ${required_dir}. Run ./bootstrap.sh first or set KEYBOARD_GUIDE_DEPS_DIR.")
     endif()
 endforeach()
+if(NOT EXISTS "${KEYBOARD_GUIDE_MINIAUDIO_DIR}/miniaudio.h")
+    message(FATAL_ERROR "Missing dependency: ${KEYBOARD_GUIDE_MINIAUDIO_DIR}. Run ./bootstrap.sh first or set KEYBOARD_GUIDE_DEPS_DIR.")
+endif()
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 find_package(Threads REQUIRED)
@@ -153,6 +157,7 @@ endif()
 file(GLOB KEYBOARD_GUIDE_CPP CONFIGURE_DEPENDS
     "${KEYBOARD_GUIDE_SRC_DIR}/main.cpp"
     "${KEYBOARD_GUIDE_SRC_DIR}/assets/*.cpp"
+    "${KEYBOARD_GUIDE_SRC_DIR}/audio/*.cpp"
     "${KEYBOARD_GUIDE_SRC_DIR}/core/*.cpp"
     "${KEYBOARD_GUIDE_SRC_DIR}/hal/*.cpp"
     "${KEYBOARD_GUIDE_SRC_DIR}/input/*.cpp"
@@ -167,14 +172,23 @@ file(GLOB_RECURSE KEYBOARD_GUIDE_ASSET_C CONFIGURE_DEPENDS
 add_executable(${KEYBOARD_GUIDE_BIN_NAME}
     ${KEYBOARD_GUIDE_CPP}
     ${KEYBOARD_GUIDE_ASSET_C}
+    "${KEYBOARD_GUIDE_SRC_DIR}/audio/miniaudio_impl.c"
 )
 
 target_include_directories(${KEYBOARD_GUIDE_BIN_NAME} PRIVATE
     "${KEYBOARD_GUIDE_SRC_DIR}"
     "${KEYBOARD_GUIDE_SRC_DIR}/assets"
+    "${KEYBOARD_GUIDE_MINIAUDIO_DIR}"
 )
+
+if(KEYBOARD_GUIDE_USE_SDL)
+    set(KEYBOARD_GUIDE_AUDIO_ASSET_DIR "${KEYBOARD_GUIDE_ROOT}/assets/audio")
+else()
+    set(KEYBOARD_GUIDE_AUDIO_ASSET_DIR "/usr/share/Keyboard-Guide/audio")
+endif()
 target_compile_definitions(${KEYBOARD_GUIDE_BIN_NAME} PRIVATE
     KEYBOARD_GUIDE_USE_SDL=$<IF:$<BOOL:${KEYBOARD_GUIDE_USE_SDL}>,1,0>
+    KEYBOARD_GUIDE_AUDIO_ASSET_DIR="${KEYBOARD_GUIDE_AUDIO_ASSET_DIR}"
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

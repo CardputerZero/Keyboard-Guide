@@ -101,12 +101,16 @@ mkdir -p \
     "${STAGE_DIR}/DEBIAN" \
     "${STAGE_DIR}/usr/share/APPLaunch/bin" \
     "${STAGE_DIR}/usr/share/APPLaunch/applications" \
+    "${STAGE_DIR}/usr/share/Keyboard-Guide/audio" \
     "${DIST_DIR}"
 
 install -m 755 "${EXECUTABLE}" "${DIST_DIR}/${BIN_NAME}"
 install -m 755 "${EXECUTABLE}" "${STAGE_DIR}/usr/share/APPLaunch/bin/${BIN_NAME}"
 install -m 644 "${DESKTOP_TEMPLATE}" \
     "${STAGE_DIR}/usr/share/APPLaunch/applications/keyboard-guide.desktop"
+install -m 644 "${ROOT_DIR}"/assets/audio/*.wav "${STAGE_DIR}/usr/share/Keyboard-Guide/audio/"
+install -m 644 "${ROOT_DIR}/assets/audio/README.md" "${STAGE_DIR}/usr/share/Keyboard-Guide/audio/README.md"
+install -m 644 "${ROOT_DIR}/assets/audio/LICENSE-AUDIO" "${STAGE_DIR}/usr/share/Keyboard-Guide/audio/LICENSE-AUDIO"
 
 INSTALLED_SIZE="$(du -sk "${STAGE_DIR}/usr" | awk '{print $1}')"
 cat >"${STAGE_DIR}/DEBIAN/control" <<EOF
@@ -116,7 +120,7 @@ Section: utils
 Priority: optional
 Architecture: ${DEB_ARCH}
 Maintainer: ${MAINTAINER}
-Depends: libc6, libstdc++6, libgcc-s1
+Depends: libc6, libstdc++6, libgcc-s1, libpulse0
 Installed-Size: ${INSTALLED_SIZE}
 Description: Keyboard Guide application for M5CardputerZero APPLaunch
  Interactive onboarding for held, one-shot, and locked Shift input modes.

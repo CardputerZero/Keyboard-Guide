@@ -1,11 +1,13 @@
 #pragma once
 
+#include "audio/sound_service.hpp"
 #include "input/keyboard_guide_input.hpp"
 #include "models/guide_model.hpp"
 #include "view_models/guide_view_model.hpp"
 #include "views/guide_view.hpp"
 
 #include <cstdint>
+#include <array>
 
 namespace keyboard_guide {
 
@@ -27,6 +29,8 @@ private:
     GuideViewModel _view_model;
     GuideView _view;
     KeyboardGuideInput _input;
+    SoundService _sound;
+    std::array<GuideModifierMode, 3> _modifier_modes{};
     bool _started               = false;
     bool _quit_requested        = false;
     bool _escape_down           = false;
@@ -36,6 +40,7 @@ private:
     uint32_t _enter_pressed_at  = 0;
 
     void onInput(const GuideInputEvent& event);
+    void playInputSound(const GuideInputEvent& event, const GuideLessonState& before, const GuideLessonState& after);
     bool onIntroPage();
 };
 

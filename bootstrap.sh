@@ -26,7 +26,8 @@ fi
 
 if [[ ! -d "${ROOT_DIR}/dependencies/lvgl/.git" || \
       ! -d "${ROOT_DIR}/dependencies/spdlog/.git" || \
-      ! -d "${ROOT_DIR}/dependencies/smooth_ui_toolkit/.git" ]]; then
+      ! -d "${ROOT_DIR}/dependencies/smooth_ui_toolkit/.git" || \
+      ! -d "${ROOT_DIR}/dependencies/miniaudio/.git" ]]; then
     "${PYTHON_ENV_BIN}" "${ROOT_DIR}/fetch_repos.py"
 fi
 
@@ -34,4 +35,3 @@ echo "Keyboard Guide bootstrap complete."
 echo "Build with:"
 echo "  cmake -S . -B build/sdl -DKEYBOARD_GUIDE_USE_SDL=ON"
 echo "  cmake --build build/sdl -j$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
-
