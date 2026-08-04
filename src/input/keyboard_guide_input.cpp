@@ -39,6 +39,8 @@ char characterForKeyCode(uint16_t code)
         case 39:
         case 185:
             return '#';
+        case 90:
+        case 231:
         case KEY_COMMA:
             return ',';
         default:
@@ -409,8 +411,8 @@ bool KeyboardGuideInput::openModifierI2c()
 {
     _modifier_registers = {
         configuredByte("KEYBOARD_GUIDE_SHIFT_REGISTER", 0xBD, 0xFF),
-        configuredByte("KEYBOARD_GUIDE_SYM_REGISTER", 0xBE, 0xFF),
-        configuredByte("KEYBOARD_GUIDE_FN_REGISTER", 0xBF, 0xFF),
+        configuredByte("KEYBOARD_GUIDE_SYM_REGISTER", 0xBF, 0xFF),
+        configuredByte("KEYBOARD_GUIDE_FN_REGISTER", 0xBE, 0xFF),
     };
     const uint8_t address = configuredByte("KEYBOARD_GUIDE_MODIFIER_I2C_ADDRESS", 0x4F, 0x7F);
     const char* device    = configuredModifierI2cDevice();
