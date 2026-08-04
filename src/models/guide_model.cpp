@@ -1223,7 +1223,7 @@ void GuideModel::navigateToExercise(int exercise_index)
             next.phase         = GuidePhase::ModifierOverview;
             next.cursor_target = GuideTarget::Shift;
             next.prompt =
-                "sym, shift, and fn work the same way.\nTap once, double-tap to lock, or hold.\nPress Enter to "
+                "sym, shift, and fn work the same way.\nTap once, double-tap to lock, or hold.\nPress OK to "
                 "continue.";
             break;
         case 5:
@@ -1279,7 +1279,7 @@ void GuideModel::advanceExercise()
             next.shift_pressed = false;
             next.shift_locked  = false;
             next.prompt =
-                "sym, shift, and fn work the same way.\nTap once, double-tap to lock, or hold.\nPress Enter to "
+                "sym, shift, and fn work the same way.\nTap once, double-tap to lock, or hold.\nPress OK to "
                 "continue.";
             break;
         case 5:
@@ -1328,7 +1328,7 @@ void GuideModel::advanceExercise()
             next.fn_one_shot    = false;
             next.fn_locked      = false;
             next.typed_text     = kFinalText;
-            next.prompt         = "All done. Press Enter to finish.";
+            next.prompt         = "All done. Press OK to finish.";
             break;
     }
     publish(std::move(next), false);

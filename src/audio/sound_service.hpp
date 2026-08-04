@@ -9,8 +9,8 @@ enum class SoundCue {
     Lock,
     Unlock,
     Error,
-    Complete,
-    FinalComplete,
+    CharacterComplete,
+    LessonComplete,
 };
 
 class SoundService {

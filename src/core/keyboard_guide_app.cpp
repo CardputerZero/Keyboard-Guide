@@ -192,9 +192,9 @@ void KeyboardGuideApp::playInputSound(const GuideInputEvent& event, const GuideL
     const bool final_exercise   = after.exercise_index == GuideModel::kExerciseCount - 1;
     const bool final_completed  = final_exercise && result_completed && after.phase == GuidePhase::SuccessHold;
     if (final_completed) {
-        _sound.play(SoundCue::FinalComplete);
-    } else if (result_completed && !final_exercise) {
-        _sound.play(SoundCue::Complete);
+        _sound.play(SoundCue::LessonComplete);
+    } else if (result_completed) {
+        _sound.play(SoundCue::CharacterComplete);
     } else {
         _sound.play(SoundCue::Typing);
     }

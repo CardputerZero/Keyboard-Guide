@@ -23,8 +23,8 @@ constexpr std::array<CueDefinition, 6> kCueDefinitions = {{
     {"mechanical-lock.wav", 0.67f},
     {"mechanical-unlock.wav", 0.70f},
     {"mechanical-error.wav", 0.70f},
-    {"mechanical-progress-step.wav", 0.73f},
-    {"mechanical-complete.wav", 0.72f},
+    {"mechanical-notification.wav", 0.432f},
+    {"mechanical-achievement.wav", 0.72f},
 }};
 
 std::filesystem::path audioAssetDirectory()

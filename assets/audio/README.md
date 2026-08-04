@@ -1,7 +1,7 @@
 # UI sounds
 
-These sounds are the `typing`, `lock`, `unlock`, `error`, `progress-step`, and
-`complete` cues from the `mechanical` theme in
+These sounds are the `typing`, `lock`, `unlock`, `error`, `progress-step`,
+`complete`, `notification`, and `achievement` cues from the `mechanical` theme in
 [uisfx 0.4.0](https://github.com/romainsimon/uisfx). The original Ogg files
 were converted to 48 kHz mono PCM WAV for native playback with miniaudio.
 
