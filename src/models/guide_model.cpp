@@ -17,7 +17,7 @@ bool isSuccessPhase(GuidePhase phase)
 std::string oneShotPrompt(char character)
 {
     const std::string target = std::string("\"") + character + '"';
-    return "Tap SHIFT once, then press " + target + ".";
+    return "Tap shift once, then press " + target + ".";
 }
 
 std::string oneShotArmedPrompt(char character)
@@ -29,13 +29,13 @@ std::string oneShotArmedPrompt(char character)
 std::string lockedPrompt(char character)
 {
     const std::string target = std::string("\"") + character + '"';
-    return "SHIFT is locked. Press " + target + ".";
+    return "shift is locked. Press " + target + ".";
 }
 
 std::string symPrompt(char character)
 {
     const std::string target = std::string("\"") + character + '"';
-    return "Use SYM any way you like.\nType " + target + " next.";
+    return "Use sym any way you like.\nType " + target + " next.";
 }
 
 std::string fnPrompt(GuideKey key)
@@ -54,7 +54,7 @@ std::string fnPrompt(GuideKey key)
         default:
             break;
     }
-    return std::string("Use FN any way you like.\nPress \"") + target + "\" next.";
+    return std::string("Use fn any way you like.\nPress \"") + target + "\" next.";
 }
 
 std::string finalTextPrompt()
@@ -146,7 +146,7 @@ void GuideModel::tick(uint32_t now_ms)
         now_ms - _first_tap_released_at > kDoubleTapWindowMs) {
         GuideLessonState next  = current;
         next.phase             = GuidePhase::LockAwaitFirstTap;
-        next.prompt            = "Double-tap SHIFT a little faster.";
+        next.prompt            = "Double-tap shift a little faster.";
         _first_tap_released_at = 0;
         publish(std::move(next), false);
         return;
@@ -240,7 +240,7 @@ void GuideModel::handleShiftMode(GuideModifierMode mode)
                 next.prompt = "Press \"A\" to type lowercase \"a\".";
                 publish(std::move(next), false);
             } else {
-                next.prompt = "Turn SHIFT off, then press \"A\".";
+                next.prompt = "Turn shift off, then press \"A\".";
                 publish(std::move(next), true);
             }
             return;
@@ -249,12 +249,12 @@ void GuideModel::handleShiftMode(GuideModifierMode mode)
             if (mode == GuideModifierMode::Held) {
                 next.phase         = GuidePhase::HoldAwaitLetter;
                 next.cursor_target = GuideTarget::A;
-                next.prompt        = "Keep holding SHIFT and press \"A\".";
+                next.prompt        = "Keep holding shift and press \"A\".";
                 publish(std::move(next), false);
             } else {
                 next.phase         = GuidePhase::HoldAwaitShift;
                 next.cursor_target = GuideTarget::Shift;
-                next.prompt        = "Hold SHIFT while pressing \"A\".\nThis types uppercase \"A\".";
+                next.prompt        = "Hold shift while pressing \"A\".\nThis types uppercase \"A\".";
                 publish(std::move(next), mode != GuideModifierMode::Inactive);
             }
             return;
@@ -287,11 +287,11 @@ void GuideModel::handleShiftMode(GuideModifierMode mode)
                 publish(std::move(next), false);
             } else if (mode == GuideModifierMode::Inactive && next.phase == GuidePhase::LockAwaitUnlock) {
                 next.cursor_target = GuideTarget::Shift;
-                completeExercise(std::move(next), "Unlocked. SHIFT guide complete!");
+                completeExercise(std::move(next), "Unlocked. shift guide complete!");
             } else if (mode == GuideModifierMode::Inactive && next.phase == GuidePhase::LockAwaitLetter) {
                 next.phase         = GuidePhase::LockAwaitFirstTap;
                 next.cursor_target = GuideTarget::Shift;
-                next.prompt        = "SHIFT unlocked. Double-tap it again.";
+                next.prompt        = "shift unlocked. Double-tap it again.";
                 publish(std::move(next), true);
             } else {
                 publish(std::move(next), false);
@@ -314,14 +314,14 @@ void GuideModel::handleShiftPressed(GuideLessonState next, uint32_t timestamp_ms
 
     switch (next.phase) {
         case GuidePhase::PlainAwaitLetter:
-            next.prompt = "Release SHIFT, then press \"A\".";
+            next.prompt = "Release shift, then press \"A\".";
             publish(std::move(next), true);
             return;
 
         case GuidePhase::HoldAwaitShift:
             next.phase         = GuidePhase::HoldAwaitLetter;
             next.cursor_target = GuideTarget::A;
-            next.prompt        = "Keep holding SHIFT and press \"A\".";
+            next.prompt        = "Keep holding shift and press \"A\".";
             publish(std::move(next), false);
             return;
 
@@ -341,14 +341,14 @@ void GuideModel::handleShiftPressed(GuideLessonState next, uint32_t timestamp_ms
         case GuidePhase::LockAwaitSecondTap:
             if (timestamp_ms - _first_tap_released_at > kDoubleTapWindowMs) {
                 next.phase             = GuidePhase::LockAwaitFirstTap;
-                next.prompt            = "Double-tap SHIFT a little faster.";
+                next.prompt            = "Double-tap shift a little faster.";
                 _first_tap_released_at = 0;
             }
             publish(std::move(next), false);
             return;
 
         case GuidePhase::LockAwaitLetter:
-            next.prompt = "Release SHIFT; it is already locked.";
+            next.prompt = "Release shift; it is already locked.";
             publish(std::move(next), true);
             return;
 
@@ -387,7 +387,7 @@ void GuideModel::handleShiftReleased(GuideLessonState next, uint32_t timestamp_m
         case GuidePhase::HoldAwaitLetter:
             next.phase         = GuidePhase::HoldAwaitShift;
             next.cursor_target = GuideTarget::Shift;
-            next.prompt        = "Keep SHIFT held while pressing \"A\".";
+            next.prompt        = "Keep shift held while pressing \"A\".";
             publish(std::move(next), true);
             return;
 
@@ -400,7 +400,7 @@ void GuideModel::handleShiftReleased(GuideLessonState next, uint32_t timestamp_m
                 next.prompt        = oneShotArmedPrompt(target);
                 publish(std::move(next), false);
             } else {
-                next.prompt = std::string("Tap SHIFT quickly, then press \"") + target + "\".";
+                next.prompt = std::string("Tap shift quickly, then press \"") + target + "\".";
                 publish(std::move(next), true);
             }
             return;
@@ -420,7 +420,7 @@ void GuideModel::handleShiftReleased(GuideLessonState next, uint32_t timestamp_m
                 _first_tap_released_at = timestamp_ms;
                 publish(std::move(next), false);
             } else {
-                next.prompt = "Double-tap SHIFT a little faster.";
+                next.prompt = "Double-tap shift a little faster.";
                 publish(std::move(next), true);
             }
             return;
@@ -438,12 +438,12 @@ void GuideModel::handleShiftReleased(GuideLessonState next, uint32_t timestamp_m
                 publish(std::move(next), false);
             } else if (valid_tap) {
                 _shift_mode            = GuideModifierMode::OneShot;
-                next.prompt            = "Double-tap SHIFT to keep uppercase on.\nThen type \"A\", \"B\", \"C\".";
+                next.prompt            = "Double-tap shift to keep uppercase on.\nThen type \"A\", \"B\", \"C\".";
                 _first_tap_released_at = timestamp_ms;
                 publish(std::move(next), false);
             } else {
                 next.phase             = GuidePhase::LockAwaitFirstTap;
-                next.prompt            = "Double-tap SHIFT a little faster.";
+                next.prompt            = "Double-tap shift a little faster.";
                 _first_tap_released_at = 0;
                 publish(std::move(next), true);
             }
@@ -455,7 +455,7 @@ void GuideModel::handleShiftReleased(GuideLessonState next, uint32_t timestamp_m
                 next.phase         = GuidePhase::LockAwaitFirstTap;
                 next.shift_locked  = false;
                 next.cursor_target = GuideTarget::Shift;
-                next.prompt        = "SHIFT unlocked. Double-tap it again.";
+                next.prompt        = "shift unlocked. Double-tap it again.";
                 publish(std::move(next), true);
             } else {
                 next.prompt = lockedPrompt(expectedSequenceCharacter(next));
@@ -467,9 +467,9 @@ void GuideModel::handleShiftReleased(GuideLessonState next, uint32_t timestamp_m
             if (valid_tap) {
                 next.shift_locked  = false;
                 next.cursor_target = GuideTarget::Shift;
-                completeExercise(std::move(next), "Unlocked. SHIFT guide complete!");
+                completeExercise(std::move(next), "Unlocked. shift guide complete!");
             } else {
-                next.prompt = "Tap SHIFT quickly to unlock.";
+                next.prompt = "Tap shift quickly to unlock.";
                 publish(std::move(next), true);
             }
             return;
@@ -524,7 +524,7 @@ void GuideModel::handleSymMode(GuideModifierMode mode)
     if (next.exercise_index == 5) {
         if (next.phase == GuidePhase::LockAwaitUnlock && mode == GuideModifierMode::Inactive) {
             next.cursor_target = GuideTarget::Hash;
-            completeExercise(std::move(next), "Unlocked. SYM guide complete!");
+            completeExercise(std::move(next), "Unlocked. sym guide complete!");
         } else {
             publish(std::move(next), false);
         }
@@ -593,7 +593,7 @@ void GuideModel::handleSymReleased(GuideLessonState next, uint32_t timestamp_ms)
                                                : GuideModifierMode::Inactive;
     if (next.phase == GuidePhase::LockAwaitUnlock && _sym_mode == GuideModifierMode::Inactive) {
         next.cursor_target = GuideTarget::Hash;
-        completeExercise(std::move(next), "Unlocked. SYM guide complete!");
+        completeExercise(std::move(next), "Unlocked. sym guide complete!");
     } else {
         publish(std::move(next), false);
     }
@@ -636,7 +636,7 @@ void GuideModel::handleFnMode(GuideModifierMode mode)
     if (next.exercise_index == 6) {
         if (next.phase == GuidePhase::LockAwaitUnlock && mode == GuideModifierMode::Inactive) {
             next.cursor_target = GuideTarget::Right;
-            completeExercise(std::move(next), "Unlocked. FN guide complete!");
+            completeExercise(std::move(next), "Unlocked. fn guide complete!");
         } else {
             publish(std::move(next), false);
         }
@@ -705,7 +705,7 @@ void GuideModel::handleFnReleased(GuideLessonState next, uint32_t timestamp_ms)
                                              : GuideModifierMode::Inactive;
     if (next.phase == GuidePhase::LockAwaitUnlock && _fn_mode == GuideModifierMode::Inactive) {
         next.cursor_target = GuideTarget::Right;
-        completeExercise(std::move(next), "Unlocked. FN guide complete!");
+        completeExercise(std::move(next), "Unlocked. fn guide complete!");
     } else {
         publish(std::move(next), false);
     }
@@ -763,7 +763,7 @@ void GuideModel::handleCharacterPressed(GuideLessonState next, char character)
         case GuidePhase::PlainAwaitLetter:
             if (_shift_mode != GuideModifierMode::Inactive) {
                 _shift_tap_invalid = true;
-                next.prompt        = "Turn SHIFT off, then press \"A\".";
+                next.prompt        = "Turn shift off, then press \"A\".";
                 publish(std::move(next), true);
             } else if (character == 'A') {
                 next.typed_text.assign(1, 'a');
@@ -776,7 +776,7 @@ void GuideModel::handleCharacterPressed(GuideLessonState next, char character)
             return;
 
         case GuidePhase::HoldAwaitShift:
-            next.prompt = "Hold SHIFT first, then press \"A\".";
+            next.prompt = "Hold shift first, then press \"A\".";
             publish(std::move(next), true);
             return;
 
@@ -787,7 +787,7 @@ void GuideModel::handleCharacterPressed(GuideLessonState next, char character)
                 ++next.result_revision;
                 completeExercise(std::move(next), "Nice! You typed uppercase \"A\".");
             } else {
-                next.prompt = "Keep holding SHIFT and press \"A\".";
+                next.prompt = "Keep holding shift and press \"A\".";
                 publish(std::move(next), true);
             }
             return;
@@ -806,7 +806,7 @@ void GuideModel::handleCharacterPressed(GuideLessonState next, char character)
             } else {
                 next.phase         = GuidePhase::OneShotAwaitShift;
                 next.cursor_target = GuideTarget::Shift;
-                next.prompt        = std::string("Try again: tap SHIFT, then press \"") + expected + "\".";
+                next.prompt        = std::string("Try again: tap shift, then press \"") + expected + "\".";
                 publish(std::move(next), true);
             }
             return;
@@ -816,7 +816,7 @@ void GuideModel::handleCharacterPressed(GuideLessonState next, char character)
             if (_shift_down) {
                 _shift_tap_invalid = true;
             }
-            next.prompt = std::string("Double-tap SHIFT before typing \"") + expected + "\".";
+            next.prompt = std::string("Double-tap shift before typing \"") + expected + "\".";
             publish(std::move(next), true);
             return;
 
@@ -824,13 +824,13 @@ void GuideModel::handleCharacterPressed(GuideLessonState next, char character)
             if (_shift_mode == GuideModifierMode::Locked && character == expected) {
                 appendSequenceCharacter(std::move(next), character);
             } else {
-                next.prompt = std::string("Press \"") + expected + "\" next. SHIFT stays locked.";
+                next.prompt = std::string("Press \"") + expected + "\" next. shift stays locked.";
                 publish(std::move(next), true);
             }
             return;
 
         case GuidePhase::LockAwaitUnlock:
-            next.prompt = "Tap SHIFT once to unlock.";
+            next.prompt = "Tap shift once to unlock.";
             publish(std::move(next), true);
             return;
 
@@ -860,7 +860,7 @@ void GuideModel::handleSymCharacterPressed(GuideLessonState next, char character
         return;
     }
     if (next.phase == GuidePhase::LockAwaitUnlock) {
-        next.prompt = "Tap SYM once to unlock.";
+        next.prompt = "Tap sym once to unlock.";
         publish(std::move(next), true);
         return;
     }
@@ -1001,7 +1001,7 @@ void GuideModel::handleFunctionKeyPressed(GuideLessonState next, GuideKey key)
         return;
     }
     if (next.phase == GuidePhase::LockAwaitUnlock) {
-        next.prompt = "Tap FN once to unlock.";
+        next.prompt = "Tap fn once to unlock.";
         publish(std::move(next), true);
         return;
     }
@@ -1050,7 +1050,7 @@ void GuideModel::appendSequenceCharacter(GuideLessonState next, char character)
         } else {
             next.phase         = GuidePhase::LockAwaitUnlock;
             next.cursor_target = GuideTarget::Shift;
-            next.prompt        = "\"A\", \"B\", \"C\" complete.\nTap SHIFT once to unlock.";
+            next.prompt        = "\"A\", \"B\", \"C\" complete.\nTap shift once to unlock.";
             publish(std::move(next), false);
         }
         return;
@@ -1078,7 +1078,7 @@ void GuideModel::appendSymCharacter(GuideLessonState next, char character)
         if (_sym_mode == GuideModifierMode::Locked || next.sym_locked) {
             next.phase         = GuidePhase::LockAwaitUnlock;
             next.cursor_target = GuideTarget::Shift;
-            next.prompt        = "\"!\", \"@\", \"#\" complete.\nTap SYM once to unlock.";
+            next.prompt        = "\"!\", \"@\", \"#\" complete.\nTap sym once to unlock.";
             publish(std::move(next), false);
         } else {
             next.cursor_target = GuideTarget::Hash;
@@ -1103,7 +1103,7 @@ void GuideModel::appendFunctionKey(GuideLessonState next, GuideKey key)
         if (_fn_mode == GuideModifierMode::Locked || next.fn_locked) {
             next.phase         = GuidePhase::LockAwaitUnlock;
             next.cursor_target = GuideTarget::Fn;
-            next.prompt        = "All directions complete.\nTap FN once to unlock.";
+            next.prompt        = "All directions complete.\nTap fn once to unlock.";
             publish(std::move(next), false);
         } else {
             next.cursor_target = GuideTarget::Right;
@@ -1193,15 +1193,15 @@ void GuideModel::navigateToExercise(int exercise_index)
             next.phase         = GuidePhase::PlainAwaitLetter;
             next.cursor_target = GuideTarget::A;
             next.prompt        = _shift_mode == GuideModifierMode::Inactive ? "Press \"A\" to type lowercase \"a\"."
-                                                                            : "Turn SHIFT off, then press \"A\".";
+                                                                            : "Turn shift off, then press \"A\".";
             break;
         case 1:
             next.phase =
                 _shift_mode == GuideModifierMode::Held ? GuidePhase::HoldAwaitLetter : GuidePhase::HoldAwaitShift;
             next.cursor_target = _shift_mode == GuideModifierMode::Held ? GuideTarget::A : GuideTarget::Shift;
             next.prompt        = _shift_mode == GuideModifierMode::Held
-                                     ? "Keep holding SHIFT and press \"A\"."
-                                     : "Hold SHIFT while pressing \"A\".\nThis types uppercase \"A\".";
+                                     ? "Keep holding shift and press \"A\"."
+                                     : "Hold shift while pressing \"A\".\nThis types uppercase \"A\".";
             break;
         case 2:
             next.phase         = _shift_mode == GuideModifierMode::OneShot ? GuidePhase::OneShotAwaitLetter
@@ -1209,7 +1209,7 @@ void GuideModel::navigateToExercise(int exercise_index)
             next.cursor_target = _shift_mode == GuideModifierMode::OneShot ? GuideTarget::A : GuideTarget::Shift;
             next.prompt        = _shift_mode == GuideModifierMode::OneShot
                                      ? oneShotArmedPrompt('A')
-                                     : "Tap SHIFT once for one uppercase key.\nThen press \"A\".";
+                                     : "Tap shift once for one uppercase key.\nThen press \"A\".";
             break;
         case 3:
             next.phase =
@@ -1217,13 +1217,13 @@ void GuideModel::navigateToExercise(int exercise_index)
             next.cursor_target = _shift_mode == GuideModifierMode::Locked ? GuideTarget::A : GuideTarget::Shift;
             next.prompt        = _shift_mode == GuideModifierMode::Locked
                                      ? lockedPrompt('A')
-                                     : "Double-tap SHIFT to keep uppercase on.\nThen type \"A\", \"B\", \"C\".";
+                                     : "Double-tap shift to keep uppercase on.\nThen type \"A\", \"B\", \"C\".";
             break;
         case 4:
             next.phase         = GuidePhase::ModifierOverview;
             next.cursor_target = GuideTarget::Shift;
             next.prompt =
-                "SHIFT, SYM, and FN work the same way.\nTap once, double-tap to lock, or hold.\nPress Enter to "
+                "sym, shift, and fn work the same way.\nTap once, double-tap to lock, or hold.\nPress Enter to "
                 "continue.";
             break;
         case 5:
@@ -1259,18 +1259,18 @@ void GuideModel::advanceExercise()
         case 1:
             next.phase         = GuidePhase::HoldAwaitShift;
             next.cursor_target = GuideTarget::Shift;
-            next.prompt        = "Hold SHIFT while pressing \"A\".\nThis types uppercase \"A\".";
+            next.prompt        = "Hold shift while pressing \"A\".\nThis types uppercase \"A\".";
             break;
         case 2:
             next.phase         = GuidePhase::OneShotAwaitShift;
             next.cursor_target = GuideTarget::Shift;
-            next.prompt        = "Tap SHIFT once for one uppercase key.\nThen press \"A\".";
+            next.prompt        = "Tap shift once for one uppercase key.\nThen press \"A\".";
             break;
         case 3:
             next.phase             = GuidePhase::LockAwaitFirstTap;
             next.cursor_target     = GuideTarget::Shift;
             next.shift_locked      = false;
-            next.prompt            = "Double-tap SHIFT to keep uppercase on.\nThen type \"A\", \"B\", \"C\".";
+            next.prompt            = "Double-tap shift to keep uppercase on.\nThen type \"A\", \"B\", \"C\".";
             _first_tap_released_at = 0;
             break;
         case 4:
@@ -1279,7 +1279,7 @@ void GuideModel::advanceExercise()
             next.shift_pressed = false;
             next.shift_locked  = false;
             next.prompt =
-                "SHIFT, SYM, and FN work the same way.\nTap once, double-tap to lock, or hold.\nPress Enter to "
+                "sym, shift, and fn work the same way.\nTap once, double-tap to lock, or hold.\nPress Enter to "
                 "continue.";
             break;
         case 5:

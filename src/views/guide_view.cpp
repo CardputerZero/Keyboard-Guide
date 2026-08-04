@@ -49,8 +49,8 @@ constexpr int kFnSequenceY      = 54;
 constexpr int kFnSequenceWidth  = 32;
 constexpr int kFnSequenceHeight = 26;
 
-constexpr int kOverviewShiftX = 30;
-constexpr int kOverviewSymX   = 124;
+constexpr int kOverviewSymX   = 30;
+constexpr int kOverviewShiftX = 124;
 constexpr int kOverviewFnX    = 218;
 
 constexpr int kCursorY       = 89;
@@ -198,8 +198,8 @@ struct GuideView::KeyVisual {
     std::unique_ptr<Container> face;
     std::unique_ptr<Label> label;
     std::unique_ptr<Container> one_shot_dot;
-    std::unique_ptr<Container> lock_shackle;
-    std::unique_ptr<Container> lock_body;
+    std::unique_ptr<Image> lock_icon;
+    int key_width             = 0;
     int x                     = 0;
     int y                     = 0;
     int face_offset           = 0;
@@ -211,6 +211,8 @@ struct GuideView::KeyVisual {
     KeyVisual(lv_obj_t* parent, int width, uint32_t fill, uint32_t border, uint32_t base_color, int radius,
               bool supports_lock = false)
     {
+        key_width = width;
+
         base = std::make_unique<Container>(parent);
         base->setSize(width, kKeyHeight);
         setupContainer(*base, LV_OPA_COVER);
@@ -241,22 +243,12 @@ struct GuideView::KeyVisual {
             one_shot_dot->setRadius(3);
             one_shot_dot->setHidden(true);
 
-            lock_shackle = std::make_unique<Container>(face->raw_ptr());
-            lock_shackle->setSize(8, 8);
-            lock_shackle->setPos(width - 17, 7);
-            setupContainer(*lock_shackle, LV_OPA_TRANSP);
-            lock_shackle->setBorderColor(lv_color_hex(kCurrent));
-            lock_shackle->setBorderWidth(2);
-            lock_shackle->setRadius(4);
-            lock_shackle->setHidden(true);
-
-            lock_body = std::make_unique<Container>(face->raw_ptr());
-            lock_body->setSize(10, 8);
-            lock_body->setPos(width - 18, 13);
-            setupContainer(*lock_body, LV_OPA_COVER);
-            lock_body->setBgColor(lv_color_hex(kCurrent));
-            lock_body->setRadius(2);
-            lock_body->setHidden(true);
+            lock_icon = std::make_unique<Image>(face->raw_ptr());
+            lock_icon->setSrc(&image_lock);
+            lock_icon->setSize(12, 17);
+            lock_icon->setImageRecolor(lv_color_hex(kCurrent));
+            lock_icon->setImageRecolorOpa(LV_OPA_COVER);
+            lock_icon->setHidden(true);
         }
     }
 
@@ -285,10 +277,25 @@ struct GuideView::KeyVisual {
 
     void setLocked(bool locked)
     {
-        if (lock_shackle && lock_body) {
-            lock_shackle->setHidden(!locked);
-            lock_body->setHidden(!locked);
+        if (!lock_icon) {
+            return;
         }
+
+        lock_icon->setHidden(!locked);
+        if (!locked) {
+            label->align(LV_ALIGN_CENTER, 1, 1);
+            return;
+        }
+
+        constexpr int kLockWidth = 12;
+        constexpr int kLockGap   = 4;
+        lv_point_t text_size{};
+        lv_text_get_size(&text_size, label->getText(), uiFont14(), 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        const int group_width    = text_size.x + kLockGap + kLockWidth;
+        const int group_x        = (key_width - group_width) / 2;
+        const int label_center_x = group_x + text_size.x / 2;
+        label->align(LV_ALIGN_CENTER, label_center_x - key_width / 2 + 2, 1);
+        lock_icon->setPos(group_x + text_size.x + kLockGap, 9);
     }
 
     void setOneShotArmed(bool armed, uint32_t now_ms)
@@ -673,7 +680,7 @@ void GuideView::render(const GuideLessonState& state)
     const int prompt_line_count  = 1 + static_cast<int>(std::count(state.prompt.begin(), state.prompt.end(), '\n'));
     const int prompt_text_height = lv_font_get_line_height(uiFont14()) * prompt_line_count;
     _prompt_label->setHeight(prompt_text_height);
-    _prompt_label->setY(kPromptY + (kPromptHeight - prompt_text_height) / 2);
+    _prompt_label->setY(kPromptY + (kPromptHeight - prompt_text_height) / 2 - (overview ? 5 : 0));
     _prompt_label->setText(state.prompt);
     _prompt_label->setTextColor(lv_color_hex(state.last_action_error ? kError : (success ? kComplete : kPrompt)));
 

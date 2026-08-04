@@ -17,6 +17,7 @@ extern "C" {
 /* Images */
 LV_IMAGE_DECLARE(image_cursor_hover);
 LV_IMAGE_DECLARE(image_cursor_pressed);
+LV_IMAGE_DECLARE(image_lock);
 
 /* Fonts */
 LV_FONT_DECLARE(font_noto_sans_sc_semibold_10);
