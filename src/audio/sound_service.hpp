@@ -24,6 +24,7 @@ public:
     bool start();
     void stop();
     void play(SoundCue cue);
+    void playExclusive(SoundCue cue);
 
 private:
     struct Impl;

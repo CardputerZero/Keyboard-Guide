@@ -49,6 +49,7 @@ struct SoundService::Impl {
     std::array<bool, kCueDefinitions.size()> sound_initialized{};
     bool context_initialized = false;
     bool engine_initialized  = false;
+    bool playback_locked     = false;
     std::mutex mutex;
 
     ~Impl()
@@ -126,9 +127,26 @@ struct SoundService::Impl {
     void play(SoundCue cue)
     {
         std::lock_guard<std::mutex> lock(mutex);
+        if (playback_locked) {
+            return;
+        }
+        playLocked(cue);
+    }
+
+    void playExclusive(SoundCue cue)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (!playback_locked && playLocked(cue)) {
+            playback_locked = true;
+        }
+    }
+
+private:
+    bool playLocked(SoundCue cue)
+    {
         const std::size_t index = cueIndex(cue);
         if (!engine_initialized || index >= sounds.size() || !sound_initialized[index]) {
-            return;
+            return false;
         }
 
         for (std::size_t current = 0; current < sounds.size(); ++current) {
@@ -139,10 +157,11 @@ struct SoundService::Impl {
         if (ma_sound_seek_to_pcm_frame(&sounds[index], 0) != MA_SUCCESS ||
             ma_sound_start(&sounds[index]) != MA_SUCCESS) {
             spdlog::warn("Keyboard Guide sound: failed to play '{}'", kCueDefinitions[index].file_name);
+            return false;
         }
+        return true;
     }
 
-private:
     void cleanupLocked()
     {
         for (std::size_t index = 0; index < sounds.size(); ++index) {
@@ -159,6 +178,7 @@ private:
             ma_context_uninit(&context);
             context_initialized = false;
         }
+        playback_locked = false;
     }
 };
 
@@ -181,6 +201,11 @@ void SoundService::stop()
 void SoundService::play(SoundCue cue)
 {
     _impl->play(cue);
+}
+
+void SoundService::playExclusive(SoundCue cue)
+{
+    _impl->playExclusive(cue);
 }
 
 }  // namespace keyboard_guide
