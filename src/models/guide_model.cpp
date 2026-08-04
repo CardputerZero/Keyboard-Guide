@@ -57,9 +57,9 @@ std::string fnPrompt(GuideKey key)
     return std::string("Use FN any way you like.\nPress \"") + target + "\" next.";
 }
 
-std::string finalTextPrompt(char character)
+std::string finalTextPrompt()
 {
-    return std::string("Type \"") + character + "\" next.";
+    return "Try \"Hi,M5Stack!\"";
 }
 
 char functionKeyMarker(GuideKey key)
@@ -956,7 +956,7 @@ void GuideModel::handleFinalTextPressed(GuideLessonState next, char character)
         next.fn_pressed    = false;
         next.fn_one_shot   = false;
         next.fn_locked     = false;
-        next.prompt        = finalTextPrompt(expected);
+        next.prompt        = finalTextPrompt();
         publish(std::move(next), true);
         return;
     }
@@ -970,7 +970,7 @@ void GuideModel::handleFinalTextPressed(GuideLessonState next, char character)
         return;
     }
 
-    next.prompt = finalTextPrompt(expectedFinalCharacter(next));
+    next.prompt = finalTextPrompt();
     publish(std::move(next), false);
 }
 
@@ -1240,7 +1240,7 @@ void GuideModel::navigateToExercise(int exercise_index)
         default:
             next.phase         = GuidePhase::TextAwaitCharacter;
             next.cursor_target = GuideTarget::None;
-            next.prompt        = finalTextPrompt(kFinalText[0]);
+            next.prompt        = finalTextPrompt();
             break;
     }
     publish(std::move(next), false);
@@ -1312,7 +1312,7 @@ void GuideModel::advanceExercise()
             next.fn_pressed    = false;
             next.fn_one_shot   = false;
             next.fn_locked     = false;
-            next.prompt        = finalTextPrompt(kFinalText[0]);
+            next.prompt        = finalTextPrompt();
             break;
         default:
             clearModifierState();

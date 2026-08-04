@@ -110,18 +110,12 @@ constexpr int kFinalTextWidth  = 20;
 constexpr int kFinalTextHeight = 26;
 constexpr std::array<char, 11> kFinalTextCharacters{'H', 'i', ',', 'M', '5', 'S', 't', 'a', 'c', 'k', '!'};
 
-constexpr size_t kNormalConfettiCount = 8;
-constexpr std::array<int, 24> kConfettiDx{
-    -24, -17, -8, 7, 16, 24, -20, 20, -120, -104, -88, -70, -52, -34, 34, 52, 70, 88, 104, 120, -112, -76, 76, 112,
+constexpr std::array<int, 8> kConfettiDx{-24, -17, -8, 7, 16, 24, -20, 20};
+constexpr std::array<int, 8> kConfettiDy{-7, -20, -25, -25, -19, -6, 8, 8};
+constexpr std::array<uint32_t, 6> kConfettiColors{
+    0xFFD45A, 0x59D4FF, 0xFF6B9E, 0x3FCC75, 0xC77DFF, 0xFF9F43,
 };
-constexpr std::array<int, 24> kConfettiDy{
-    -7, -20, -25, -25, -19, -6, 8, 8, -12, -30, -40, -25, -45, -34, -34, -45, -25, -40, -30, -12, 4, -5, -5, 4,
-};
-constexpr std::array<uint32_t, 24> kConfettiColors{
-    0xFFD45A, 0x59D4FF, 0xFF6B9E, 0x3FCC75, 0xC77DFF, 0xFF9F43, 0x59D4FF, 0xFFD45A,
-    0x3FCC75, 0xFF6B9E, 0xFFD45A, 0x59D4FF, 0xFF9F43, 0xC77DFF, 0x3FCC75, 0xFFD45A,
-    0x59D4FF, 0xFF6B9E, 0xC77DFF, 0xFF9F43, 0xFFD45A, 0x3FCC75, 0x59D4FF, 0xFF6B9E,
-};
+constexpr float kFinalConfettiAngleStep = 2.39996322972865332f;
 
 using smooth_ui_toolkit::lvgl_cpp::Container;
 using smooth_ui_toolkit::lvgl_cpp::Image;
@@ -484,7 +478,16 @@ void GuideView::onEnter(lv_obj_t* parent)
         piece       = std::make_unique<Container>(_root->raw_ptr());
         piece->setSize(index % 2 == 0 ? 5 : 3, index % 2 == 0 ? 3 : 6);
         setupContainer(*piece, LV_OPA_COVER);
-        piece->setBgColor(lv_color_hex(kConfettiColors[index]));
+        piece->setBgColor(lv_color_hex(kConfettiColors[index % kConfettiColors.size()]));
+        piece->setRadius(1);
+        piece->setHidden(true);
+    }
+    for (size_t index = 0; index < _final_confetti.size(); ++index) {
+        auto& piece = _final_confetti[index];
+        piece       = std::make_unique<Container>(_root->raw_ptr());
+        piece->setSize(index % 3 == 0 ? 6 : 3, index % 3 == 0 ? 3 : 7);
+        setupContainer(*piece, LV_OPA_COVER);
+        piece->setBgColor(lv_color_hex(kConfettiColors[index % kConfettiColors.size()]));
         piece->setRadius(1);
         piece->setHidden(true);
     }
@@ -553,6 +556,9 @@ void GuideView::onExit()
     _prompt_label.reset();
     _cursor.reset();
     for (auto& piece : _confetti) {
+        piece.reset();
+    }
+    for (auto& piece : _final_confetti) {
         piece.reset();
     }
     for (auto& label : _final_text_labels) {
@@ -724,6 +730,9 @@ void GuideView::applyTransforms(uint32_t now_ms)
         for (auto& piece : _confetti) {
             piece->setHidden(true);
         }
+        for (auto& piece : _final_confetti) {
+            piece->setHidden(true);
+        }
         return;
     }
 
@@ -758,14 +767,12 @@ void GuideView::applyTransforms(uint32_t now_ms)
     const bool show_confetti = _result_pop_active && pop_progress > 0.03f && pop_progress < 0.94f;
     const float burst        = std::sin(std::min(pop_progress / 0.72f, 1.0f) * kTau * 0.25f);
     const float fade         = 1.0f - std::clamp((pop_progress - 0.42f) / 0.52f, 0.0f, 1.0f);
-    const int origin_x       = _whole_text_pop ? kScreenWidth / 2 : _pop_x + _pop_width / 2;
-    const int origin_y       = _whole_text_pop ? kFinalTextY + kFinalTextHeight / 2 : _pop_y + _pop_height / 2;
-    const size_t piece_count = _whole_text_pop ? _confetti.size() : kNormalConfettiCount;
+    const int origin_x       = _pop_x + _pop_width / 2;
+    const int origin_y       = _pop_y + _pop_height / 2;
     for (size_t index = 0; index < _confetti.size(); ++index) {
-        auto& piece              = _confetti[index];
-        const bool piece_visible = show_confetti && index < piece_count;
-        piece->setHidden(!piece_visible);
-        if (!piece_visible) {
+        auto& piece = _confetti[index];
+        piece->setHidden(!show_confetti || _whole_text_pop);
+        if (!show_confetti || _whole_text_pop) {
             continue;
         }
         const int x = origin_x + static_cast<int>(std::lround(static_cast<float>(kConfettiDx[index]) * burst));
@@ -774,6 +781,23 @@ void GuideView::applyTransforms(uint32_t now_ms)
         piece->setPos(x, y);
         piece->setOpa(static_cast<lv_opa_t>(std::lround(fade * 255.0f)));
         piece->setRotation(static_cast<int32_t>((static_cast<float>(index) * 35.0f + pop_progress * 220.0f) * 10.0f));
+    }
+    for (size_t index = 0; index < _final_confetti.size(); ++index) {
+        auto& piece = _final_confetti[index];
+        piece->setHidden(!show_confetti || !_whole_text_pop);
+        if (!show_confetti || !_whole_text_pop) {
+            continue;
+        }
+
+        const float angle  = static_cast<float>(index) * kFinalConfettiAngleStep;
+        const float radius = 52.0f + static_cast<float>(index % 8) * 10.0f;
+        const int x        = kScreenWidth / 2 + static_cast<int>(std::lround(std::cos(angle) * radius * burst));
+        const int y        = kFinalTextY + kFinalTextHeight / 2 +
+                      static_cast<int>(
+                          std::lround(std::sin(angle) * radius * 0.62f * burst + pop_progress * pop_progress * 16.0f));
+        piece->setPos(x, y);
+        piece->setOpa(static_cast<lv_opa_t>(std::lround(fade * 255.0f)));
+        piece->setRotation(static_cast<int32_t>((static_cast<float>(index) * 47.0f + pop_progress * 260.0f) * 10.0f));
     }
 }
 
@@ -828,6 +852,11 @@ void GuideView::resetPopTarget()
         _pop_label = nullptr;
     }
     for (auto& piece : _confetti) {
+        if (piece && piece->isValid()) {
+            piece->setHidden(true);
+        }
+    }
+    for (auto& piece : _final_confetti) {
         if (piece && piece->isValid()) {
             piece->setHidden(true);
         }
