@@ -43,6 +43,13 @@ private:
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _equals_label;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _result_label;
     std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Container> _divider;
+    std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Container>, 3> _overview_key_backgrounds;
+    std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label>, 3> _overview_key_labels;
+    std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label>, 3> _overview_connector_labels;
+    std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _overview_prompt_label;
+    std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Container> _overview_ok_background;
+    std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label> _overview_ok_label;
+    std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label>, 2> _overview_ok_connectors;
     std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label>, 3> _sequence_labels;
     std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label>, 4> _fn_sequence_labels;
     std::array<std::unique_ptr<smooth_ui_toolkit::lvgl_cpp::Label>, 11> _final_text_labels;

@@ -49,9 +49,18 @@ constexpr int kFnSequenceY      = 54;
 constexpr int kFnSequenceWidth  = 32;
 constexpr int kFnSequenceHeight = 26;
 
-constexpr int kOverviewSymX   = 30;
-constexpr int kOverviewShiftX = 124;
-constexpr int kOverviewFnX    = 218;
+constexpr int kIntroSymX   = 30;
+constexpr int kIntroShiftX = 124;
+constexpr int kIntroFnX    = 218;
+
+constexpr int kOverviewKeyY      = 51;
+constexpr int kOverviewKeyHeight = 21;
+constexpr int kOverviewPromptX   = 8;
+constexpr int kOverviewPromptY   = 79;
+constexpr int kOverviewPromptW   = kScreenWidth - kOverviewPromptX * 2;
+constexpr int kOverviewPromptH   = 20;
+constexpr int kOverviewKeyPadX   = 5;
+constexpr int kOverviewOkY       = 101;
 
 constexpr int kCursorY       = 89;
 constexpr int kCursorSize    = 25;
@@ -90,6 +99,13 @@ constexpr uint32_t kComplete     = 0x3FCC75;
 constexpr uint32_t kPrompt       = 0xD5D5D5;
 constexpr uint32_t kError        = 0xFF6B6B;
 constexpr uint32_t kNavText      = 0x868686;
+
+constexpr std::array<uint32_t, 3> kOverviewKeyFill{kSymFill, kShiftFill, kFnFill};
+constexpr std::array<const char*, 3> kOverviewKeyText{"sym", "shift", "fn"};
+constexpr std::array<const char*, 3> kOverviewConnectorText{", ", ", and ", " work the same way."};
+constexpr char kOverviewPromptPrefix[] = "sym, shift, and fn work the same way.\n";
+constexpr char kOverviewOkText[]       = "OK";
+constexpr std::array<const char*, 2> kOverviewOkConnectorText{"Press ", " to continue."};
 
 constexpr std::array<int, 3> kSequenceX{145, 190, 235};
 constexpr std::array<float, 3> kSequenceCursorX{170.0f, 215.0f, 260.0f};
@@ -189,6 +205,26 @@ size_t fnTargetIndex(GuideTarget target)
         default:
             return 0;
     }
+}
+
+int textWidth(const char* text, const lv_font_t* font)
+{
+    lv_point_t size{};
+    lv_text_get_size(&size, text, font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    return size.x;
+}
+
+std::string overviewInstructionLine(const std::string& prompt)
+{
+    constexpr size_t kPrefixLength = sizeof(kOverviewPromptPrefix) - 1;
+    const size_t start = prompt.size() >= kPrefixLength && prompt.compare(0, kPrefixLength, kOverviewPromptPrefix) == 0
+                             ? kPrefixLength
+                             : 0;
+    const size_t end   = prompt.find('\n', start);
+    if (end == std::string::npos) {
+        return prompt.substr(start);
+    }
+    return prompt.substr(start, end - start);
 }
 
 }  // namespace
@@ -405,12 +441,12 @@ void GuideView::onEnter(lv_obj_t* parent)
 
     _sym_key = std::make_unique<KeyVisual>(_root->raw_ptr(), kShiftWidth, kSymFill, kSymBorder, kSymBase,
                                            kKeyHeight / 2, true);
-    _sym_key->setPos(kOverviewSymX, kKeyY);
+    _sym_key->setPos(kIntroSymX, kKeyY);
     _sym_key->setText("Sym");
 
     _fn_key =
         std::make_unique<KeyVisual>(_root->raw_ptr(), kShiftWidth, kFnFill, kFnBorder, kFnBase, kKeyHeight / 2, true);
-    _fn_key->setPos(kOverviewFnX, kKeyY);
+    _fn_key->setPos(kIntroFnX, kKeyY);
     _fn_key->setText("Fn");
 
     _letter_key = std::make_unique<KeyVisual>(_root->raw_ptr(), kLetterWidth, kLetterFill, kLetterBorder, kLetterBase,
@@ -447,6 +483,97 @@ void GuideView::onEnter(lv_obj_t* parent)
     setupContainer(*_divider, LV_OPA_COVER);
     _divider->setBgColor(lv_color_hex(kOperator));
     _divider->setRadius(1);
+
+    const lv_font_t* kOverviewFont = uiFont14();
+    std::array<int, 3> overview_key_widths{};
+    std::array<int, 3> overview_connector_widths{};
+    int overview_line_width = 0;
+    for (size_t index = 0; index < overview_key_widths.size(); ++index) {
+        overview_key_widths[index] = textWidth(kOverviewKeyText[index], kOverviewFont) + kOverviewKeyPadX * 2;
+        overview_line_width += overview_key_widths[index];
+    }
+    for (size_t index = 0; index < overview_connector_widths.size(); ++index) {
+        overview_connector_widths[index] = textWidth(kOverviewConnectorText[index], kOverviewFont);
+        overview_line_width += overview_connector_widths[index];
+    }
+
+    int overview_x = (kScreenWidth - overview_line_width) / 2;
+    for (size_t index = 0; index < _overview_key_backgrounds.size(); ++index) {
+        auto& background = _overview_key_backgrounds[index];
+        background       = std::make_unique<Container>(_root->raw_ptr());
+        background->setSize(overview_key_widths[index], kOverviewKeyHeight);
+        background->setPos(overview_x, kOverviewKeyY);
+        setupContainer(*background, LV_OPA_COVER);
+        background->setBgColor(lv_color_hex(kOverviewKeyFill[index]));
+        background->setRadius(LV_RADIUS_CIRCLE);
+
+        auto& label = _overview_key_labels[index];
+        label       = std::make_unique<Label>(background->raw_ptr());
+        label->setSize(overview_key_widths[index], lv_font_get_line_height(kOverviewFont) + 3);
+        label->align(LV_ALIGN_CENTER, 0, 2);
+        label->setTextAlign(LV_TEXT_ALIGN_CENTER);
+        label->setTextFont(kOverviewFont);
+        label->setTextColor(lv_color_hex(kCurrent));
+        label->setText(kOverviewKeyText[index]);
+
+        overview_x += overview_key_widths[index];
+        auto& connector = _overview_connector_labels[index];
+        connector       = std::make_unique<Label>(_root->raw_ptr());
+        connector->setSize(overview_connector_widths[index], lv_font_get_line_height(kOverviewFont) + 3);
+        connector->setPos(overview_x, kOverviewKeyY + 3);
+        connector->setTextFont(kOverviewFont);
+        connector->setTextColor(lv_color_hex(kCurrent));
+        connector->setText(kOverviewConnectorText[index]);
+        overview_x += overview_connector_widths[index];
+    }
+
+    _overview_prompt_label = std::make_unique<Label>(_root->raw_ptr());
+    _overview_prompt_label->setSize(kOverviewPromptW, kOverviewPromptH);
+    _overview_prompt_label->setPos(kOverviewPromptX, kOverviewPromptY);
+    _overview_prompt_label->setLongMode(LV_LABEL_LONG_WRAP);
+    _overview_prompt_label->setTextAlign(LV_TEXT_ALIGN_CENTER);
+    _overview_prompt_label->setTextFont(kOverviewFont);
+    _overview_prompt_label->setTextColor(lv_color_hex(kCurrent));
+
+    std::array<int, 2> overview_ok_connector_widths{};
+    int overview_ok_line_width = textWidth(kOverviewOkText, kOverviewFont) + kOverviewKeyPadX * 2;
+    for (size_t index = 0; index < overview_ok_connector_widths.size(); ++index) {
+        overview_ok_connector_widths[index] = textWidth(kOverviewOkConnectorText[index], kOverviewFont);
+        overview_ok_line_width += overview_ok_connector_widths[index];
+    }
+
+    int overview_ok_x          = (kScreenWidth - overview_ok_line_width) / 2;
+    _overview_ok_connectors[0] = std::make_unique<Label>(_root->raw_ptr());
+    _overview_ok_connectors[0]->setSize(overview_ok_connector_widths[0], lv_font_get_line_height(kOverviewFont) + 3);
+    _overview_ok_connectors[0]->setPos(overview_ok_x, kOverviewOkY + 3);
+    _overview_ok_connectors[0]->setTextFont(kOverviewFont);
+    _overview_ok_connectors[0]->setTextColor(lv_color_hex(kCurrent));
+    _overview_ok_connectors[0]->setText(kOverviewOkConnectorText[0]);
+    overview_ok_x += overview_ok_connector_widths[0];
+
+    const int overview_ok_width = textWidth(kOverviewOkText, kOverviewFont) + kOverviewKeyPadX * 2;
+    _overview_ok_background     = std::make_unique<Container>(_root->raw_ptr());
+    _overview_ok_background->setSize(overview_ok_width, kOverviewKeyHeight);
+    _overview_ok_background->setPos(overview_ok_x, kOverviewOkY);
+    setupContainer(*_overview_ok_background, LV_OPA_COVER);
+    _overview_ok_background->setBgColor(lv_color_hex(kLetterFill));
+    _overview_ok_background->setRadius(LV_RADIUS_CIRCLE);
+
+    _overview_ok_label = std::make_unique<Label>(_overview_ok_background->raw_ptr());
+    _overview_ok_label->setSize(overview_ok_width, lv_font_get_line_height(kOverviewFont) + 3);
+    _overview_ok_label->align(LV_ALIGN_CENTER, 0, 2);
+    _overview_ok_label->setTextAlign(LV_TEXT_ALIGN_CENTER);
+    _overview_ok_label->setTextFont(kOverviewFont);
+    _overview_ok_label->setTextColor(lv_color_hex(kCurrent));
+    _overview_ok_label->setText(kOverviewOkText);
+    overview_ok_x += overview_ok_width;
+
+    _overview_ok_connectors[1] = std::make_unique<Label>(_root->raw_ptr());
+    _overview_ok_connectors[1]->setSize(overview_ok_connector_widths[1], lv_font_get_line_height(kOverviewFont) + 3);
+    _overview_ok_connectors[1]->setPos(overview_ok_x, kOverviewOkY + 3);
+    _overview_ok_connectors[1]->setTextFont(kOverviewFont);
+    _overview_ok_connectors[1]->setTextColor(lv_color_hex(kCurrent));
+    _overview_ok_connectors[1]->setText(kOverviewOkConnectorText[1]);
 
     for (size_t index = 0; index < _sequence_labels.size(); ++index) {
         auto& label = _sequence_labels[index];
@@ -578,6 +705,21 @@ void GuideView::onExit()
     for (auto& label : _sequence_labels) {
         label.reset();
     }
+    _overview_prompt_label.reset();
+    for (auto& connector : _overview_ok_connectors) {
+        connector.reset();
+    }
+    _overview_ok_label.reset();
+    _overview_ok_background.reset();
+    for (auto& label : _overview_connector_labels) {
+        label.reset();
+    }
+    for (auto& label : _overview_key_labels) {
+        label.reset();
+    }
+    for (auto& background : _overview_key_backgrounds) {
+        background.reset();
+    }
     _divider.reset();
     _result_label.reset();
     _equals_label.reset();
@@ -621,21 +763,21 @@ void GuideView::render(const GuideLessonState& state)
     _skip_label->setHidden(intro || final_text);
     _intro_title->setHidden(!intro);
 
-    _shift_key->setHidden(!(intro || overview || hold || shift_sequence));
-    _shift_key->setPos(intro || overview ? kOverviewShiftX : (shift_sequence ? kSequenceShiftX : kHoldShiftX), kKeyY);
+    _shift_key->setHidden(!(intro || hold || shift_sequence));
+    _shift_key->setPos(intro ? kIntroShiftX : (shift_sequence ? kSequenceShiftX : kHoldShiftX), kKeyY);
     _shift_key->setPressed(!intro && !overview && (state.shift_pressed || state.shift_locked));
     _shift_key->setLocked(!intro && !overview && state.shift_locked);
     _shift_key->setOneShotArmed(
         !intro && !overview && state.phase == GuidePhase::OneShotAwaitLetter && !state.shift_locked, lv_tick_get());
 
-    _sym_key->setHidden(!(intro || overview || sym_exercise));
-    _sym_key->setPos(intro || overview ? kOverviewSymX : kSequenceShiftX, kKeyY);
+    _sym_key->setHidden(!(intro || sym_exercise));
+    _sym_key->setPos(intro ? kIntroSymX : kSequenceShiftX, kKeyY);
     _sym_key->setPressed(sym_exercise && (state.sym_pressed || state.sym_locked));
     _sym_key->setLocked(sym_exercise && state.sym_locked);
     _sym_key->setOneShotArmed(sym_exercise && state.sym_one_shot && !state.sym_locked, lv_tick_get());
 
-    _fn_key->setHidden(!(intro || overview || fn_exercise));
-    _fn_key->setPos(intro || overview ? kOverviewFnX : kSequenceShiftX, kKeyY);
+    _fn_key->setHidden(!(intro || fn_exercise));
+    _fn_key->setPos(intro ? kIntroFnX : kSequenceShiftX, kKeyY);
     _fn_key->setPressed(fn_exercise && (state.fn_pressed || state.fn_locked));
     _fn_key->setLocked(fn_exercise && state.fn_locked);
     _fn_key->setOneShotArmed(fn_exercise && state.fn_one_shot && !state.fn_locked, lv_tick_get());
@@ -653,6 +795,19 @@ void GuideView::render(const GuideLessonState& state)
     _result_label->setTextColor(lv_color_hex(state.typed_text.empty() ? kFuture : kComplete));
 
     _divider->setHidden(!sequence);
+    for (auto& background : _overview_key_backgrounds) {
+        background->setHidden(!overview);
+    }
+    for (auto& connector : _overview_connector_labels) {
+        connector->setHidden(!overview);
+    }
+    _overview_ok_background->setHidden(!overview);
+    for (auto& connector : _overview_ok_connectors) {
+        connector->setHidden(!overview);
+    }
+    _overview_prompt_label->setHidden(!overview);
+    _overview_prompt_label->setText(overviewInstructionLine(state.prompt));
+    _overview_prompt_label->setTextColor(lv_color_hex(state.last_action_error ? kError : kCurrent));
     for (size_t index = 0; index < _sequence_labels.size(); ++index) {
         auto& label = _sequence_labels[index];
         label->setHidden(!(shift_sequence || sym_exercise));
@@ -679,8 +834,9 @@ void GuideView::render(const GuideLessonState& state)
 
     const int prompt_line_count  = 1 + static_cast<int>(std::count(state.prompt.begin(), state.prompt.end(), '\n'));
     const int prompt_text_height = lv_font_get_line_height(uiFont14()) * prompt_line_count;
+    _prompt_label->setHidden(overview);
     _prompt_label->setHeight(prompt_text_height);
-    _prompt_label->setY(kPromptY + (kPromptHeight - prompt_text_height) / 2 - (overview ? 5 : 0));
+    _prompt_label->setY(kPromptY + (kPromptHeight - prompt_text_height) / 2);
     _prompt_label->setText(state.prompt);
     _prompt_label->setTextColor(lv_color_hex(state.last_action_error ? kError : (success ? kComplete : kPrompt)));
 
@@ -735,6 +891,7 @@ void GuideView::applyTransforms(uint32_t now_ms)
     _cursor->setPos(cursor_x, kCursorY + (fn_exercise ? 3 : 0) - (final_text ? 6 : 0) - bob_offset);
     lv_obj_move_foreground(_cursor->raw_ptr());
     _prompt_label->setX(kPromptX + shake_offset);
+    _overview_prompt_label->setX(kOverviewPromptX + shake_offset);
 
     if (!_pop_label && !_whole_text_pop) {
         for (auto& piece : _confetti) {
