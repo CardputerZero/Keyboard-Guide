@@ -26,25 +26,26 @@ constexpr int kKeyTravel     = 6;
 constexpr int kNormalKeyX    = 85;
 constexpr int kHoldShiftX    = 26;
 constexpr int kHoldLetterX   = 151;
-constexpr int kPlusX         = 115;
-constexpr int kNormalEqualX  = 149;
-constexpr int kHoldEqualX    = 215;
+constexpr int kOperatorWidth = 34;
+constexpr int kPlusX         = 109;
+constexpr int kNormalEqualX  = 148;
+constexpr int kHoldEqualX    = 214;
 constexpr int kNormalResultX = 187;
 constexpr int kHoldResultX   = 251;
-constexpr int kOperatorY     = 52;
+constexpr int kOperatorY     = 47;
 constexpr int kResultY       = 47;
 constexpr int kResultWidth   = 32;
 constexpr int kResultHeight  = 37;
 
 constexpr int kSequenceShiftX   = 28;
-constexpr int kDividerX         = 121;
+constexpr int kDividerX         = 123;
 constexpr int kDividerY         = 48;
 constexpr int kDividerWidth     = 2;
 constexpr int kDividerHeight    = 34;
 constexpr int kSequenceY        = 47;
 constexpr int kSequenceWidth    = 32;
 constexpr int kSequenceHeight   = 37;
-constexpr int kFnSequenceY      = 51;
+constexpr int kFnSequenceY      = 54;
 constexpr int kFnSequenceWidth  = 32;
 constexpr int kFnSequenceHeight = 26;
 
@@ -94,8 +95,8 @@ constexpr std::array<int, 3> kSequenceX{145, 190, 235};
 constexpr std::array<float, 3> kSequenceCursorX{170.0f, 215.0f, 260.0f};
 constexpr std::array<char, 3> kShiftSequenceCharacters{'A', 'B', 'C'};
 constexpr std::array<char, 3> kSymSequenceCharacters{'!', '@', '#'};
-constexpr std::array<int, 4> kFnSequenceX{132, 174, 216, 258};
-constexpr std::array<float, 4> kFnSequenceCursorX{157.0f, 199.0f, 241.0f, 283.0f};
+constexpr std::array<int, 4> kFnSequenceX{137, 179, 221, 263};
+constexpr std::array<float, 4> kFnSequenceCursorX{162.0f, 204.0f, 246.0f, 288.0f};
 constexpr std::array<const char*, 4> kFnSequenceNames{
     "\xE2\x96\xB2",
     "\xE2\x96\xBC",
@@ -226,7 +227,7 @@ struct GuideView::KeyVisual {
 
         label = std::make_unique<Label>(face->raw_ptr());
         label->setSize(width, lv_font_get_line_height(uiFont14()) + 3);
-        label->center();
+        label->align(LV_ALIGN_CENTER, 1, 1);
         label->setTextAlign(LV_TEXT_ALIGN_CENTER);
         label->setTextFont(uiFont14());
         label->setTextColor(lv_color_hex(kCurrent));
@@ -411,18 +412,18 @@ void GuideView::onEnter(lv_obj_t* parent)
     _letter_key->setText('A');
 
     _plus_label = std::make_unique<Label>(_root->raw_ptr());
-    _plus_label->setSize(22, lv_font_get_line_height(&lv_font_montserrat_20) + 4);
+    _plus_label->setSize(kOperatorWidth, lv_font_get_line_height(&lv_font_montserrat_30) + 4);
     _plus_label->setPos(kPlusX, kOperatorY);
     _plus_label->setTextAlign(LV_TEXT_ALIGN_CENTER);
-    _plus_label->setTextFont(&lv_font_montserrat_20);
+    _plus_label->setTextFont(&lv_font_montserrat_30);
     _plus_label->setTextColor(lv_color_hex(kOperator));
     _plus_label->setText("+");
 
     _equals_label = std::make_unique<Label>(_root->raw_ptr());
-    _equals_label->setSize(22, lv_font_get_line_height(&lv_font_montserrat_20) + 4);
+    _equals_label->setSize(kOperatorWidth, lv_font_get_line_height(&lv_font_montserrat_30) + 4);
     _equals_label->setPos(kNormalEqualX, kOperatorY);
     _equals_label->setTextAlign(LV_TEXT_ALIGN_CENTER);
-    _equals_label->setTextFont(&lv_font_montserrat_20);
+    _equals_label->setTextFont(&lv_font_montserrat_30);
     _equals_label->setTextColor(lv_color_hex(kOperator));
     _equals_label->setText("=");
 
@@ -610,7 +611,7 @@ void GuideView::render(const GuideLessonState& state)
     const bool hold           = state.exercise_index == 1;
     const bool success        = isSuccessPhase(state.phase);
 
-    _skip_label->setHidden(intro);
+    _skip_label->setHidden(intro || final_text);
     _intro_title->setHidden(!intro);
 
     _shift_key->setHidden(!(intro || overview || hold || shift_sequence));
@@ -718,11 +719,13 @@ void GuideView::applyTransforms(uint32_t now_ms)
         shake_offset = static_cast<int>(std::lround(std::sin(progress * kTau * 3.0f) * (1.0f - progress) * 4.0f));
     }
 
-    const bool final_text = isFinalTextExercise(_view_model.state().get().exercise_index);
-    const int bob_offset  = static_cast<int>(std::lround(_cursor_bob_value * 4.0f));
+    const int exercise_index = _view_model.state().get().exercise_index;
+    const bool final_text    = isFinalTextExercise(exercise_index);
+    const bool fn_exercise   = isFnExercise(exercise_index);
+    const int bob_offset     = static_cast<int>(std::lround(_cursor_bob_value * 4.0f));
     const int cursor_x =
         static_cast<int>(std::lround(_cursor_x.value())) + (final_text ? 0 : kCursorXOffset) - bob_offset;
-    _cursor->setPos(cursor_x, kCursorY - (final_text ? 6 : 0) - bob_offset);
+    _cursor->setPos(cursor_x, kCursorY + (fn_exercise ? 3 : 0) - (final_text ? 6 : 0) - bob_offset);
     lv_obj_move_foreground(_cursor->raw_ptr());
     _prompt_label->setX(kPromptX + shake_offset);
 
