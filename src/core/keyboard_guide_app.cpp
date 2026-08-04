@@ -117,6 +117,14 @@ void KeyboardGuideApp::onInput(const GuideInputEvent& event)
         }
         return;
     }
+    if (event.key == GuideKey::Tab) {
+        const GuideLessonState& state = _model.state().get();
+        if (event.pressed && !event.repeated && state.phase != GuidePhase::Intro &&
+            state.exercise_index < GuideModel::kExerciseCount - 1 && _view_model.nextExercise()) {
+            _sound.play(SoundCue::Typing);
+        }
+        return;
+    }
     if (event.key == GuideKey::Enter) {
         if (onIntroPage()) {
             if (event.pressed && !event.repeated && !_enter_down) {
@@ -134,9 +142,10 @@ void KeyboardGuideApp::onInput(const GuideInputEvent& event)
                 }
             }
         } else if (event.pressed && !event.repeated) {
-            if (_view_model.nextExercise()) {
+            const GuidePhase phase = _model.state().get().phase;
+            if (phase == GuidePhase::ModifierOverview && _view_model.nextExercise()) {
                 _sound.play(SoundCue::Typing);
-            } else {
+            } else if (phase == GuidePhase::Done) {
                 _quit_requested = true;
             }
         }

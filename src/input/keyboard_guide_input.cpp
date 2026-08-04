@@ -340,6 +340,9 @@ void KeyboardGuideInput::poll()
                     case KEY_ESC:
                         key = GuideKey::Escape;
                         break;
+                    case KEY_TAB:
+                        key = GuideKey::Tab;
+                        break;
                     case KEY_ENTER:
                     case KEY_KPENTER:
                         key = GuideKey::Enter;
@@ -608,6 +611,8 @@ int KeyboardGuideInput::sdlEventWatch(void* context, SDL_Event* event)
         input->emit(GuideKey::Right, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_ESCAPE) {
         input->emit(GuideKey::Escape, pressed, repeated);
+    } else if (scancode == SDL_SCANCODE_TAB) {
+        input->emit(GuideKey::Tab, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_RETURN || scancode == SDL_SCANCODE_KP_ENTER) {
         input->emit(GuideKey::Enter, pressed, repeated);
     } else if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z) {

@@ -15,6 +15,7 @@ enum class GuideKey {
     Down,
     Left,
     Right,
+    Tab,
     Enter,
     Escape,
 };

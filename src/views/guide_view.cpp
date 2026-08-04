@@ -388,7 +388,7 @@ void GuideView::onEnter(lv_obj_t* parent)
     _skip_label->setTextAlign(LV_TEXT_ALIGN_RIGHT);
     _skip_label->setTextFont(uiFont10());
     _skip_label->setTextColor(lv_color_hex(kNavText));
-    _skip_label->setText("Skip: OK >");
+    _skip_label->setText("Skip: TAB >");
 
     _intro_title = std::make_unique<Label>(_root->raw_ptr());
     _intro_title->setSize(220, lv_font_get_line_height(&lv_font_montserrat_20) + 4);
