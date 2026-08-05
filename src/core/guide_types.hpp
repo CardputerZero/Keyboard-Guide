@@ -13,6 +13,8 @@ enum class GuideKey {
     Fn,
     Up,
     Down,
+    VolumeDown,
+    VolumeUp,
     Left,
     Right,
     Tab,
@@ -58,8 +60,8 @@ enum class GuideTarget {
     Fn,
     Up,
     Down,
-    Left,
-    Right,
+    VolumeDown,
+    VolumeUp,
 };
 
 struct GuideInputEvent {

@@ -17,6 +17,8 @@ extern "C" {
 /* Images */
 LV_IMAGE_DECLARE(image_cursor_hover);
 LV_IMAGE_DECLARE(image_cursor_pressed);
+LV_IMAGE_DECLARE(image_icon_volume_down);
+LV_IMAGE_DECLARE(image_icon_volume_up);
 LV_IMAGE_DECLARE(image_lock);
 
 /* Fonts */

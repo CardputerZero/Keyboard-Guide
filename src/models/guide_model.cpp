@@ -45,11 +45,11 @@ std::string fnPrompt(GuideKey key)
         case GuideKey::Down:
             target = "Down";
             break;
-        case GuideKey::Left:
-            target = "Left";
+        case GuideKey::VolumeDown:
+            target = "Volume down";
             break;
-        case GuideKey::Right:
-            target = "Right";
+        case GuideKey::VolumeUp:
+            target = "Volume up";
             break;
         default:
             break;
@@ -67,10 +67,10 @@ char functionKeyMarker(GuideKey key)
     switch (key) {
         case GuideKey::Down:
             return 'D';
-        case GuideKey::Left:
-            return 'L';
-        case GuideKey::Right:
-            return 'R';
+        case GuideKey::VolumeDown:
+            return '-';
+        case GuideKey::VolumeUp:
+            return '+';
         default:
             return 'U';
     }
@@ -124,8 +124,8 @@ void GuideModel::handleInput(const GuideInputEvent& event)
             break;
         case GuideKey::Up:
         case GuideKey::Down:
-        case GuideKey::Left:
-        case GuideKey::Right:
+        case GuideKey::VolumeDown:
+        case GuideKey::VolumeUp:
             if (_state.get().exercise_index == 6) {
                 handleFunctionKey(event);
             }
@@ -635,7 +635,7 @@ void GuideModel::handleFnMode(GuideModifierMode mode)
     next.fn_locked        = mode == GuideModifierMode::Locked;
     if (next.exercise_index == 6) {
         if (next.phase == GuidePhase::LockAwaitUnlock && mode == GuideModifierMode::Inactive) {
-            next.cursor_target = GuideTarget::Right;
+            next.cursor_target = GuideTarget::VolumeUp;
             completeExercise(std::move(next), "Unlocked. fn guide complete!");
         } else {
             publish(std::move(next), false);
@@ -704,7 +704,7 @@ void GuideModel::handleFnReleased(GuideLessonState next, uint32_t timestamp_ms)
                           : next.fn_one_shot ? GuideModifierMode::OneShot
                                              : GuideModifierMode::Inactive;
     if (next.phase == GuidePhase::LockAwaitUnlock && _fn_mode == GuideModifierMode::Inactive) {
-        next.cursor_target = GuideTarget::Right;
+        next.cursor_target = GuideTarget::VolumeUp;
         completeExercise(std::move(next), "Unlocked. fn guide complete!");
     } else {
         publish(std::move(next), false);
@@ -1103,11 +1103,11 @@ void GuideModel::appendFunctionKey(GuideLessonState next, GuideKey key)
         if (_fn_mode == GuideModifierMode::Locked || next.fn_locked) {
             next.phase         = GuidePhase::LockAwaitUnlock;
             next.cursor_target = GuideTarget::Fn;
-            next.prompt        = "All directions complete.\nTap fn once to unlock.";
+            next.prompt        = "All fn shortcuts complete.\nTap fn once to unlock.";
             publish(std::move(next), false);
         } else {
-            next.cursor_target = GuideTarget::Right;
-            completeExercise(std::move(next), "Nice! You used all four directions.");
+            next.cursor_target = GuideTarget::VolumeUp;
+            completeExercise(std::move(next), "Nice! You used all four fn shortcuts.");
         }
         return;
     }
@@ -1380,14 +1380,14 @@ char GuideModel::expectedSymCharacter(const GuideLessonState& state)
 
 GuideKey GuideModel::expectedFunctionKey(const GuideLessonState& state)
 {
-    constexpr std::array<GuideKey, 4> kDirections = {
+    constexpr std::array<GuideKey, 4> kFnKeys = {
         GuideKey::Up,
         GuideKey::Down,
-        GuideKey::Left,
-        GuideKey::Right,
+        GuideKey::VolumeDown,
+        GuideKey::VolumeUp,
     };
     const size_t index = state.typed_text.size();
-    return index < kDirections.size() ? kDirections[index] : GuideKey::Right;
+    return index < kFnKeys.size() ? kFnKeys[index] : GuideKey::VolumeUp;
 }
 
 char GuideModel::resolveFinalCharacter(const GuideLessonState& state, char character) const
@@ -1456,10 +1456,10 @@ GuideTarget GuideModel::targetForFunctionKey(GuideKey key)
     switch (key) {
         case GuideKey::Down:
             return GuideTarget::Down;
-        case GuideKey::Left:
-            return GuideTarget::Left;
-        case GuideKey::Right:
-            return GuideTarget::Right;
+        case GuideKey::VolumeDown:
+            return GuideTarget::VolumeDown;
+        case GuideKey::VolumeUp:
+            return GuideTarget::VolumeUp;
         default:
             return GuideTarget::Up;
     }

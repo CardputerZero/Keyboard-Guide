@@ -71,31 +71,31 @@ char characterForKeyCode(uint16_t code)
     return '\0';
 }
 
-int rawFnDirectionIndex(uint16_t code)
+int rawFnKeyIndex(uint16_t code)
 {
     switch (code) {
         case KEY_F:
             return 0;
         case KEY_X:
             return 1;
-        case KEY_Z:
+        case KEY_S:
             return 2;
-        case KEY_C:
+        case KEY_D:
             return 3;
         default:
             return -1;
     }
 }
 
-GuideKey directionForIndex(size_t index)
+GuideKey fnKeyForIndex(size_t index)
 {
-    constexpr std::array<GuideKey, 4> kDirections = {
+    constexpr std::array<GuideKey, 4> kFnKeys = {
         GuideKey::Up,
         GuideKey::Down,
-        GuideKey::Left,
-        GuideKey::Right,
+        GuideKey::VolumeDown,
+        GuideKey::VolumeUp,
     };
-    return index < kDirections.size() ? kDirections[index] : GuideKey::Unknown;
+    return index < kFnKeys.size() ? kFnKeys[index] : GuideKey::Unknown;
 }
 
 GuideKey directionForKeyCode(uint16_t code)
@@ -109,6 +109,18 @@ GuideKey directionForKeyCode(uint16_t code)
             return GuideKey::Left;
         case KEY_RIGHT:
             return GuideKey::Right;
+        default:
+            return GuideKey::Unknown;
+    }
+}
+
+GuideKey volumeKeyForKeyCode(uint16_t code)
+{
+    switch (code) {
+        case KEY_VOLUMEDOWN:
+            return GuideKey::VolumeDown;
+        case KEY_VOLUMEUP:
+            return GuideKey::VolumeUp;
         default:
             return GuideKey::Unknown;
     }
@@ -258,7 +270,7 @@ void KeyboardGuideInput::close()
     _modifier_modes.fill(GuideModifierMode::Inactive);
     _modifier_modes_known.fill(false);
     _pending_inactive.fill(false);
-    _raw_fn_direction_down.fill(false);
+    _raw_fn_key_down.fill(false);
     _modifier_last_poll_ms         = 0;
     _modifier_consecutive_failures = 0;
     _modifier_snapshot_seen        = false;
@@ -295,20 +307,22 @@ void KeyboardGuideInput::poll()
                     continue;
                 }
 
-                const int raw_fn_direction_index = rawFnDirectionIndex(event.code);
-                const GuideKey direct_direction  = directionForKeyCode(event.code);
-                const bool modifier_consumer =
-                    direct_direction != GuideKey::Unknown || characterForKeyCode(event.code) != '\0';
+                const int raw_fn_key_index      = rawFnKeyIndex(event.code);
+                const GuideKey direct_direction = directionForKeyCode(event.code);
+                const GuideKey direct_volume    = volumeKeyForKeyCode(event.code);
+                const bool modifier_consumer    = direct_direction != GuideKey::Unknown ||
+                                               direct_volume != GuideKey::Unknown ||
+                                               characterForKeyCode(event.code) != '\0';
                 if (modifier_consumer && event.value == 1 && _modifier_i2c_fd >= 0) {
                     refreshModifierModes(true);
                 }
 
-                bool raw_fn_direction = false;
-                if (raw_fn_direction_index >= 0) {
-                    const size_t index = static_cast<size_t>(raw_fn_direction_index);
-                    raw_fn_direction   = _raw_fn_direction_down[index] || (event.value != 0 && fnModifierActive());
-                    if (event.value == 1 && raw_fn_direction) {
-                        _raw_fn_direction_down[index] = true;
+                bool raw_fn_key = false;
+                if (raw_fn_key_index >= 0) {
+                    const size_t index = static_cast<size_t>(raw_fn_key_index);
+                    raw_fn_key         = _raw_fn_key_down[index] || (event.value != 0 && fnModifierActive());
+                    if (event.value == 1 && raw_fn_key) {
+                        _raw_fn_key_down[index] = true;
                     }
                 }
 
@@ -337,6 +351,12 @@ void KeyboardGuideInput::poll()
                     case KEY_RIGHT:
                         key = GuideKey::Right;
                         break;
+                    case KEY_VOLUMEDOWN:
+                        key = GuideKey::VolumeDown;
+                        break;
+                    case KEY_VOLUMEUP:
+                        key = GuideKey::VolumeUp;
+                        break;
                     case KEY_ESC:
                         key = GuideKey::Escape;
                         break;
@@ -348,8 +368,8 @@ void KeyboardGuideInput::poll()
                         key = GuideKey::Enter;
                         break;
                     default:
-                        if (raw_fn_direction) {
-                            key = directionForIndex(static_cast<size_t>(raw_fn_direction_index));
+                        if (raw_fn_key) {
+                            key = fnKeyForIndex(static_cast<size_t>(raw_fn_key_index));
                         } else {
                             character = characterForKeyCode(event.code);
                             key       = character == '\0' ? GuideKey::Unknown : GuideKey::Character;
@@ -363,8 +383,8 @@ void KeyboardGuideInput::poll()
                 if (key != GuideKey::Unknown) {
                     emit(key, event.value != 0, event.value == 2, character);
                 }
-                if (raw_fn_direction_index >= 0 && event.value == 0) {
-                    _raw_fn_direction_down[static_cast<size_t>(raw_fn_direction_index)] = false;
+                if (raw_fn_key_index >= 0 && event.value == 0) {
+                    _raw_fn_key_down[static_cast<size_t>(raw_fn_key_index)] = false;
                 }
                 continue;
             }
@@ -606,9 +626,9 @@ int KeyboardGuideInput::sdlEventWatch(void* context, SDL_Event* event)
     } else if (scancode == SDL_SCANCODE_DOWN) {
         input->emit(GuideKey::Down, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_LEFT) {
-        input->emit(GuideKey::Left, pressed, repeated);
+        input->emit(GuideKey::VolumeDown, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_RIGHT) {
-        input->emit(GuideKey::Right, pressed, repeated);
+        input->emit(GuideKey::VolumeUp, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_ESCAPE) {
         input->emit(GuideKey::Escape, pressed, repeated);
     } else if (scancode == SDL_SCANCODE_TAB) {

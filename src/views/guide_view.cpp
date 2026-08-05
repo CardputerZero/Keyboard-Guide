@@ -48,6 +48,7 @@ constexpr int kSequenceHeight   = 37;
 constexpr int kFnSequenceY      = 54;
 constexpr int kFnSequenceWidth  = 32;
 constexpr int kFnSequenceHeight = 26;
+constexpr int kFnImageSize      = 24;
 
 constexpr int kIntroSymX   = 30;
 constexpr int kIntroShiftX = 124;
@@ -113,12 +114,11 @@ constexpr std::array<char, 3> kShiftSequenceCharacters{'A', 'B', 'C'};
 constexpr std::array<char, 3> kSymSequenceCharacters{'!', '@', '#'};
 constexpr std::array<int, 4> kFnSequenceX{137, 179, 221, 263};
 constexpr std::array<float, 4> kFnSequenceCursorX{162.0f, 204.0f, 246.0f, 288.0f};
-constexpr std::array<const char*, 4> kFnSequenceNames{
+constexpr std::array<const char*, 2> kFnSequenceNames{
     "\xE2\x96\xB2",
     "\xE2\x96\xBC",
-    "\xE2\x97\x80",
-    "\xE2\x96\xB6",
 };
+constexpr std::array<const lv_image_dsc_t*, 2> kFnVolumeImages{&image_icon_volume_down, &image_icon_volume_up};
 
 constexpr int kFinalTextX      = 35;
 constexpr int kFinalTextY      = 51;
@@ -198,9 +198,9 @@ size_t fnTargetIndex(GuideTarget target)
     switch (target) {
         case GuideTarget::Down:
             return 1;
-        case GuideTarget::Left:
+        case GuideTarget::VolumeDown:
             return 2;
-        case GuideTarget::Right:
+        case GuideTarget::VolumeUp:
             return 3;
         default:
             return 0;
@@ -596,6 +596,17 @@ void GuideView::onEnter(lv_obj_t* parent)
         label->setText(kFnSequenceNames[index]);
         label->setTransformPivot(kFnSequenceWidth / 2, kFnSequenceHeight / 2);
     }
+    for (size_t index = 0; index < _fn_sequence_images.size(); ++index) {
+        const size_t sequence_index = index + _fn_sequence_labels.size();
+        auto& image                 = _fn_sequence_images[index];
+        image                       = std::make_unique<Image>(_root->raw_ptr());
+        image->setSrc(kFnVolumeImages[index]);
+        image->setSize(kFnImageSize, kFnImageSize);
+        image->setPos(kFnSequenceX[sequence_index] + (kFnSequenceWidth - kFnImageSize) / 2,
+                      kFnSequenceY + (kFnSequenceHeight - kFnImageSize) / 2 - 4);
+        image->setImageRecolorOpa(LV_OPA_COVER);
+        image->setTransformPivot(kFnImageSize / 2, kFnImageSize / 2);
+    }
 
     for (size_t index = 0; index < _final_text_labels.size(); ++index) {
         auto& label = _final_text_labels[index];
@@ -701,6 +712,9 @@ void GuideView::onExit()
     }
     for (auto& label : _fn_sequence_labels) {
         label.reset();
+    }
+    for (auto& image : _fn_sequence_images) {
+        image.reset();
     }
     for (auto& label : _sequence_labels) {
         label.reset();
@@ -824,6 +838,15 @@ void GuideView::render(const GuideLessonState& state)
         label->setHidden(!fn_exercise);
         label->setTextColor(lv_color_hex(complete ? kFnFill : (current ? kCurrent : kFuture)));
     }
+    for (size_t index = 0; index < _fn_sequence_images.size(); ++index) {
+        const size_t sequence_index = index + _fn_sequence_labels.size();
+        auto& image                 = _fn_sequence_images[index];
+        const bool complete         = sequence_index < state.typed_text.size();
+        const bool current =
+            sequence_index == state.typed_text.size() && !success && state.phase != GuidePhase::LockAwaitUnlock;
+        image->setHidden(!fn_exercise);
+        image->setImageRecolor(lv_color_hex(complete ? kFnFill : (current ? kCurrent : kFuture)));
+    }
     for (size_t index = 0; index < _final_text_labels.size(); ++index) {
         auto& label         = _final_text_labels[index];
         const bool complete = index < state.typed_text.size();
@@ -858,17 +881,26 @@ void GuideView::render(const GuideLessonState& state)
             playFinalTextPop();
         } else if (final_text && !state.typed_text.empty()) {
             const size_t index = std::min(state.typed_text.size() - 1, _final_text_labels.size() - 1);
-            playResultPop(*_final_text_labels[index], kFinalTextX + static_cast<int>(index) * kFinalTextStep,
+            playResultPop(_final_text_labels[index]->raw_ptr(), kFinalTextX + static_cast<int>(index) * kFinalTextStep,
                           kFinalTextY, kFinalTextWidth, kFinalTextHeight);
         } else if (fn_exercise && !state.typed_text.empty()) {
-            const size_t index = std::min(state.typed_text.size() - 1, _fn_sequence_labels.size() - 1);
-            playResultPop(*_fn_sequence_labels[index], kFnSequenceX[index], kFnSequenceY, kFnSequenceWidth,
-                          kFnSequenceHeight);
+            const size_t index = std::min(state.typed_text.size() - 1, kFnSequenceX.size() - 1);
+            if (index < _fn_sequence_labels.size()) {
+                playResultPop(_fn_sequence_labels[index]->raw_ptr(), kFnSequenceX[index], kFnSequenceY,
+                              kFnSequenceWidth, kFnSequenceHeight);
+            } else {
+                const size_t image_index = index - _fn_sequence_labels.size();
+                playResultPop(_fn_sequence_images[image_index]->raw_ptr(),
+                              kFnSequenceX[index] + (kFnSequenceWidth - kFnImageSize) / 2,
+                              kFnSequenceY + (kFnSequenceHeight - kFnImageSize) / 2 - 4, kFnImageSize, kFnImageSize);
+            }
         } else if (sequence && !state.typed_text.empty()) {
             const size_t index = std::min(state.typed_text.size() - 1, _sequence_labels.size() - 1);
-            playResultPop(*_sequence_labels[index], kSequenceX[index], kSequenceY, kSequenceWidth, kSequenceHeight);
+            playResultPop(_sequence_labels[index]->raw_ptr(), kSequenceX[index], kSequenceY, kSequenceWidth,
+                          kSequenceHeight);
         } else if (!sequence) {
-            playResultPop(*_result_label, hold ? kHoldResultX : kNormalResultX, kResultY, kResultWidth, kResultHeight);
+            playResultPop(_result_label->raw_ptr(), hold ? kHoldResultX : kNormalResultX, kResultY, kResultWidth,
+                          kResultHeight);
         }
     }
 }
@@ -893,7 +925,7 @@ void GuideView::applyTransforms(uint32_t now_ms)
     _prompt_label->setX(kPromptX + shake_offset);
     _overview_prompt_label->setX(kOverviewPromptX + shake_offset);
 
-    if (!_pop_label && !_whole_text_pop) {
+    if (!_pop_object && !_whole_text_pop) {
         for (auto& piece : _confetti) {
             piece->setHidden(true);
         }
@@ -925,10 +957,10 @@ void GuideView::applyTransforms(uint32_t now_ms)
             lv_obj_move_foreground(label->raw_ptr());
         }
     } else {
-        lv_obj_set_style_transform_scale_x(_pop_label->raw_ptr(), scale, LV_PART_MAIN);
-        lv_obj_set_style_transform_scale_y(_pop_label->raw_ptr(), scale, LV_PART_MAIN);
-        _pop_label->setY(_pop_y - lift);
-        lv_obj_move_foreground(_pop_label->raw_ptr());
+        lv_obj_set_style_transform_scale_x(_pop_object, scale, LV_PART_MAIN);
+        lv_obj_set_style_transform_scale_y(_pop_object, scale, LV_PART_MAIN);
+        lv_obj_set_y(_pop_object, _pop_y - lift);
+        lv_obj_move_foreground(_pop_object);
     }
 
     const bool show_confetti = _result_pop_active && pop_progress > 0.03f && pop_progress < 0.94f;
@@ -968,11 +1000,11 @@ void GuideView::applyTransforms(uint32_t now_ms)
     }
 }
 
-void GuideView::playResultPop(Label& label, int x, int y, int width, int height)
+void GuideView::playResultPop(lv_obj_t* object, int x, int y, int width, int height)
 {
     _result_pop.cancel();
     resetPopTarget();
-    _pop_label           = &label;
+    _pop_object          = object;
     _pop_x               = x;
     _pop_y               = y;
     _pop_width           = width;
@@ -1010,13 +1042,13 @@ void GuideView::resetPopTarget()
         }
         _whole_text_pop = false;
     }
-    if (_pop_label) {
-        if (_pop_label->isValid()) {
-            lv_obj_set_style_transform_scale_x(_pop_label->raw_ptr(), 256, LV_PART_MAIN);
-            lv_obj_set_style_transform_scale_y(_pop_label->raw_ptr(), 256, LV_PART_MAIN);
-            _pop_label->setY(_pop_y);
+    if (_pop_object) {
+        if (lv_obj_is_valid(_pop_object)) {
+            lv_obj_set_style_transform_scale_x(_pop_object, 256, LV_PART_MAIN);
+            lv_obj_set_style_transform_scale_y(_pop_object, 256, LV_PART_MAIN);
+            lv_obj_set_y(_pop_object, _pop_y);
         }
-        _pop_label = nullptr;
+        _pop_object = nullptr;
     }
     for (auto& piece : _confetti) {
         if (piece && piece->isValid()) {
