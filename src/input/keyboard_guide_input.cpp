@@ -1,5 +1,7 @@
 #include "input/keyboard_guide_input.hpp"
 
+#include "input/modifier_state_parser.hpp"
+
 #include <lvgl.h>
 #include <spdlog/spdlog.h>
 
@@ -152,6 +154,14 @@ const char* configuredModifierI2cDevice()
     return "/dev/i2c-1";
 }
 
+const char* configuredModifierStatePath()
+{
+    if (const char* value = std::getenv("KEYBOARD_GUIDE_MODIFIER_STATE_PATH"); value && value[0] != '\0') {
+        return value;
+    }
+    return "/sys/bus/i2c/devices/1-0034/modifier_state";
+}
+
 uint8_t configuredByte(const char* variable, uint8_t fallback, unsigned long maximum)
 {
     const char* value = std::getenv(variable);
@@ -190,14 +200,6 @@ const char* modifierModeName(GuideModifierMode mode)
     return "unknown";
 }
 
-bool modifierModeForRaw(uint8_t raw, GuideModifierMode& mode)
-{
-    if (raw > static_cast<uint8_t>(GuideModifierMode::Held)) {
-        return false;
-    }
-    mode = static_cast<GuideModifierMode>(raw);
-    return true;
-}
 #endif
 
 }  // namespace
@@ -223,8 +225,8 @@ bool KeyboardGuideInput::openDefault()
     } else {
         keyboard_open = openDevice("/dev/input/by-path/platform-3f804000.i2c-event");
     }
-    if (!openModifierI2c()) {
-        spdlog::warn("Keyboard Guide modifier I2C: unavailable; using evdev modifier fallback");
+    if (!openModifierBackend()) {
+        spdlog::warn("Keyboard Guide modifier state: sysfs and legacy I2C unavailable; using evdev fallback");
     }
     return keyboard_open;
 #else
@@ -263,17 +265,11 @@ void KeyboardGuideInput::close()
             ::close(fd);
         }
     }
-    if (_modifier_i2c_fd >= 0) {
-        ::close(_modifier_i2c_fd);
-        _modifier_i2c_fd = -1;
-    }
-    _modifier_modes.fill(GuideModifierMode::Inactive);
-    _modifier_modes_known.fill(false);
-    _pending_inactive.fill(false);
+    closeModifierBackend();
+    clearModifierCache(false);
     _raw_fn_key_down.fill(false);
     _modifier_last_poll_ms         = 0;
     _modifier_consecutive_failures = 0;
-    _modifier_snapshot_seen        = false;
     _modifier_read_failed          = false;
 #endif
     _event_fds.clear();
@@ -284,7 +280,7 @@ void KeyboardGuideInput::poll()
 #if !KEYBOARD_GUIDE_USE_SDL && defined(__linux__)
     constexpr uint32_t kModifierPollIntervalMs = 25;
     const uint32_t now_ms                      = lv_tick_get();
-    if (_modifier_i2c_fd >= 0 && now_ms - _modifier_last_poll_ms >= kModifierPollIntervalMs) {
+    if (_modifier_backend != ModifierBackend::None && now_ms - _modifier_last_poll_ms >= kModifierPollIntervalMs) {
         _modifier_last_poll_ms = now_ms;
         refreshModifierModes(true);
     }
@@ -313,7 +309,7 @@ void KeyboardGuideInput::poll()
                 const bool modifier_consumer    = direct_direction != GuideKey::Unknown ||
                                                direct_volume != GuideKey::Unknown ||
                                                characterForKeyCode(event.code) != '\0';
-                if (modifier_consumer && event.value == 1 && _modifier_i2c_fd >= 0) {
+                if (modifier_consumer && event.value == 1 && _modifier_backend != ModifierBackend::None) {
                     refreshModifierModes(true);
                 }
 
@@ -430,7 +426,38 @@ void KeyboardGuideInput::emitModifierMode(GuideKey key, GuideModifierMode mode)
 }
 
 #if !KEYBOARD_GUIDE_USE_SDL && defined(__linux__)
-bool KeyboardGuideInput::openModifierI2c()
+bool KeyboardGuideInput::openModifierBackend()
+{
+    if (openModifierSysfs()) {
+        return true;
+    }
+    return openModifierI2c();
+}
+
+bool KeyboardGuideInput::openModifierSysfs()
+{
+    const char* path = configuredModifierStatePath();
+    const int fd     = ::open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        spdlog::info("Keyboard Guide modifier sysfs: {} unavailable: {}", path, std::strerror(errno));
+        return false;
+    }
+
+    _modifier_fd                = fd;
+    _modifier_backend           = ModifierBackend::Sysfs;
+    const bool initial_snapshot = refreshModifierModes(false);
+    if (!initial_snapshot) {
+        spdlog::warn("Keyboard Guide modifier sysfs: initial snapshot unavailable; keeping {} open for retry", path);
+    } else {
+        spdlog::info("Keyboard Guide modifier sysfs: using {} (ABI version {})", path,
+                     ModifierStateSnapshot::kSupportedVersion);
+    }
+
+    _modifier_last_poll_ms = lv_tick_get();
+    return true;
+}
+
+bool KeyboardGuideInput::openModifierI2c(bool defer_inactive)
 {
     _modifier_registers = {
         configuredByte("KEYBOARD_GUIDE_SHIFT_REGISTER", 0xBD, 0xFF),
@@ -453,57 +480,85 @@ bool KeyboardGuideInput::openModifierI2c()
         return false;
     }
 
-    _modifier_i2c_fd = fd;
+    _modifier_fd      = fd;
+    _modifier_backend = ModifierBackend::LegacyI2c;
     spdlog::info("Keyboard Guide modifier I2C: opened {}, address=0x{:02X} via I2C_SLAVE_FORCE", device, address);
-    refreshModifierModes(false);
+    if (!refreshModifierModes(defer_inactive)) {
+        spdlog::warn("Keyboard Guide modifier I2C: initial register snapshot unavailable; keeping {} open for retry",
+                     device);
+    }
     _modifier_last_poll_ms = lv_tick_get();
     return true;
 }
 
 bool KeyboardGuideInput::refreshModifierModes(bool defer_inactive)
 {
-    if (_modifier_i2c_fd < 0) {
+    if (_modifier_backend == ModifierBackend::None || _modifier_fd < 0) {
         return false;
     }
 
     std::array<uint8_t, kModifierCount> raw{};
-    for (size_t index = 0; index < raw.size(); ++index) {
-        if (!readModifierRegister(_modifier_registers[index], raw[index])) {
+    uint64_t sequence    = 0;
+    uint8_t changed_mask = 0;
+    uint8_t reason       = 0;
+    if (_modifier_backend == ModifierBackend::Sysfs) {
+        if (!readModifierSysfs(raw, sequence, changed_mask, reason)) {
             if (!_modifier_read_failed) {
-                spdlog::warn("Keyboard Guide modifier I2C: read {} register 0x{:02X} failed: {}", modifierName(index),
-                             _modifier_registers[index], std::strerror(errno));
+                spdlog::warn("Keyboard Guide modifier sysfs: snapshot read failed");
             }
             _modifier_read_failed = true;
-            handleModifierReadFailure();
+            handleModifierReadFailure(defer_inactive);
             return false;
+        }
+    } else {
+        for (size_t index = 0; index < raw.size(); ++index) {
+            if (!readModifierRegister(_modifier_registers[index], raw[index])) {
+                if (!_modifier_read_failed) {
+                    spdlog::warn("Keyboard Guide modifier I2C: read {} register 0x{:02X} failed: {}",
+                                 modifierName(index), _modifier_registers[index], std::strerror(errno));
+                }
+                _modifier_read_failed = true;
+                handleModifierReadFailure(defer_inactive);
+                return false;
+            }
         }
     }
 
     std::array<GuideModifierMode, kModifierCount> modes{};
     for (size_t index = 0; index < raw.size(); ++index) {
-        if (!modifierModeForRaw(raw[index], modes[index])) {
+        const bool valid = _modifier_backend == ModifierBackend::Sysfs
+                               ? modifierModeForSysfsRaw(raw[index], modes[index])
+                               : modifierModeForLegacyRaw(raw[index], modes[index]);
+        if (!valid) {
             if (!_modifier_read_failed) {
-                spdlog::warn("Keyboard Guide modifier I2C: {} register 0x{:02X} returned invalid mode 0x{:02X}",
-                             modifierName(index), _modifier_registers[index], raw[index]);
+                spdlog::warn("Keyboard Guide modifier state: {} returned invalid mode {}", modifierName(index),
+                             raw[index]);
             }
             _modifier_read_failed = true;
-            handleModifierReadFailure();
+            handleModifierReadFailure(defer_inactive);
             return false;
         }
     }
 
     if (_modifier_read_failed) {
-        spdlog::info("Keyboard Guide modifier I2C: register reads recovered");
+        spdlog::info("Keyboard Guide modifier state: reads recovered");
         _modifier_read_failed = false;
     }
     _modifier_consecutive_failures = 0;
 
     const bool first_snapshot = !_modifier_snapshot_seen;
     if (first_snapshot) {
-        spdlog::info(
-            "Keyboard Guide modifier registers: SHIFT[0x{:02X}]=0x{:02X}, SYM[0x{:02X}]=0x{:02X}, "
-            "FN[0x{:02X}]=0x{:02X}",
-            _modifier_registers[0], raw[0], _modifier_registers[1], raw[1], _modifier_registers[2], raw[2]);
+        if (_modifier_backend == ModifierBackend::Sysfs) {
+            spdlog::info(
+                "Keyboard Guide modifier sysfs: sequence={}, changed_mask=0x{:02X}, reason={}, SHIFT={}, SYM={}, "
+                "FN={}",
+                sequence, changed_mask, reason, raw[0], raw[1], raw[2]);
+        } else {
+            spdlog::info(
+                "Keyboard Guide modifier registers: SHIFT[0x{:02X}]=0x{:02X}, SYM[0x{:02X}]=0x{:02X}, "
+                "FN[0x{:02X}]=0x{:02X}",
+                _modifier_registers[0], raw[0], _modifier_registers[1], raw[1], _modifier_registers[2], raw[2]);
+        }
         _modifier_snapshot_seen = true;
     }
 
@@ -525,8 +580,13 @@ bool KeyboardGuideInput::refreshModifierModes(bool defer_inactive)
         _modifier_modes[index]       = mode;
         _modifier_modes_known[index] = true;
         if (!first_snapshot) {
-            spdlog::info("Keyboard Guide modifier I2C: {} -> {} (register 0x{:02X}=0x{:02X})", modifierName(index),
-                         modifierModeName(mode), _modifier_registers[index], raw[index]);
+            if (_modifier_backend == ModifierBackend::Sysfs) {
+                spdlog::info("Keyboard Guide modifier sysfs: {} -> {} (raw={}, sequence={}, reason={})",
+                             modifierName(index), modifierModeName(mode), raw[index], sequence, reason);
+            } else {
+                spdlog::info("Keyboard Guide modifier I2C: {} -> {} (register 0x{:02X}=0x{:02X})", modifierName(index),
+                             modifierModeName(mode), _modifier_registers[index], raw[index]);
+            }
         }
         emitModifierMode(kKeys[index], mode);
     }
@@ -543,37 +603,84 @@ void KeyboardGuideInput::flushPendingModifierModes()
         _pending_inactive[index]     = false;
         _modifier_modes[index]       = GuideModifierMode::Inactive;
         _modifier_modes_known[index] = true;
-        spdlog::info("Keyboard Guide modifier I2C: {} -> inactive (register 0x{:02X}=0x00)", modifierName(index),
-                     _modifier_registers[index]);
+        spdlog::info("Keyboard Guide modifier state: {} -> inactive", modifierName(index));
         emitModifierMode(kKeys[index], GuideModifierMode::Inactive);
     }
 }
 
-void KeyboardGuideInput::handleModifierReadFailure()
+void KeyboardGuideInput::handleModifierReadFailure(bool defer_inactive)
 {
     constexpr uint32_t kFailureThreshold = 4;
     if (_modifier_consecutive_failures < kFailureThreshold) {
         ++_modifier_consecutive_failures;
     }
-    if (!_modifier_snapshot_seen || _modifier_consecutive_failures < kFailureThreshold) {
+    if (_modifier_consecutive_failures < kFailureThreshold ||
+        (_modifier_backend == ModifierBackend::LegacyI2c && !_modifier_snapshot_seen)) {
         return;
     }
 
-    spdlog::warn(
-        "Keyboard Guide modifier I2C: {} consecutive reads failed; clearing stale state and enabling evdev "
-        "fallback",
-        kFailureThreshold);
-    _modifier_snapshot_seen = false;
-    _pending_inactive.fill(false);
+    const ModifierBackend failed_backend = _modifier_backend;
+    spdlog::warn("Keyboard Guide modifier state: {} consecutive reads failed; disabling current backend",
+                 kFailureThreshold);
+    closeModifierBackend();
+    _modifier_consecutive_failures = 0;
+    _modifier_read_failed          = false;
 
+    if (failed_backend == ModifierBackend::Sysfs && openModifierI2c(defer_inactive)) {
+        spdlog::warn("Keyboard Guide modifier state: switched from sysfs to legacy I2C");
+    } else {
+        clearModifierCache(true);
+        spdlog::warn("Keyboard Guide modifier state: using evdev fallback");
+    }
+}
+
+void KeyboardGuideInput::closeModifierBackend()
+{
+    if (_modifier_fd >= 0) {
+        ::close(_modifier_fd);
+        _modifier_fd = -1;
+    }
+    _modifier_backend = ModifierBackend::None;
+}
+
+void KeyboardGuideInput::clearModifierCache(bool emit_inactive)
+{
     constexpr std::array<GuideKey, kModifierCount> kKeys = {GuideKey::Shift, GuideKey::Sym, GuideKey::Fn};
     for (size_t index = 0; index < _modifier_modes.size(); ++index) {
-        if (_modifier_modes_known[index] && _modifier_modes[index] != GuideModifierMode::Inactive) {
+        if (emit_inactive && _modifier_modes_known[index] && _modifier_modes[index] != GuideModifierMode::Inactive) {
             emitModifierMode(kKeys[index], GuideModifierMode::Inactive);
         }
         _modifier_modes[index]       = GuideModifierMode::Inactive;
         _modifier_modes_known[index] = false;
     }
+    _pending_inactive.fill(false);
+    _modifier_snapshot_seen = false;
+}
+
+bool KeyboardGuideInput::readModifierSysfs(std::array<uint8_t, kModifierCount>& raw, uint64_t& sequence,
+                                           uint8_t& changed_mask, uint8_t& reason)
+{
+    std::array<char, 512> buffer{};
+    const ssize_t bytes_read = ::pread(_modifier_fd, buffer.data(), buffer.size() - 1, 0);
+    if (bytes_read <= 0 || static_cast<size_t>(bytes_read) == buffer.size() - 1) {
+        return false;
+    }
+
+    ModifierStateSnapshot snapshot;
+    std::string error;
+    if (!parseModifierStateSnapshot(std::string_view(buffer.data(), static_cast<size_t>(bytes_read)), snapshot,
+                                    error)) {
+        if (!_modifier_read_failed) {
+            spdlog::warn("Keyboard Guide modifier sysfs: invalid snapshot: {}", error);
+        }
+        return false;
+    }
+
+    raw          = snapshot.raw_modes;
+    sequence     = snapshot.sequence;
+    changed_mask = snapshot.has_changed_mask ? snapshot.changed_mask : 0;
+    reason       = snapshot.has_reason ? snapshot.reason : 0;
+    return true;
 }
 
 bool KeyboardGuideInput::readModifierRegister(uint8_t register_address, uint8_t& value) const
@@ -584,7 +691,7 @@ bool KeyboardGuideInput::readModifierRegister(uint8_t register_address, uint8_t&
     request.command    = register_address;
     request.size       = I2C_SMBUS_BYTE_DATA;
     request.data       = &data;
-    if (::ioctl(_modifier_i2c_fd, I2C_SMBUS, &request) < 0) {
+    if (::ioctl(_modifier_fd, I2C_SMBUS, &request) < 0) {
         return false;
     }
     value = data.byte;

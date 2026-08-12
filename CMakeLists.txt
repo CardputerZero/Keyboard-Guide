@@ -4,6 +4,7 @@ project(M5CardputerZeroKeyboardGuide VERSION 0.1.0 LANGUAGES C CXX ASM)
 
 option(KEYBOARD_GUIDE_USE_SDL "Use LVGL's SDL backend for desktop testing" ON)
 option(KEYBOARD_GUIDE_CONVERT_ASSETS "Refresh generated asset declarations during configure" ON)
+option(KEYBOARD_GUIDE_BUILD_TESTS "Build Keyboard Guide unit tests" OFF)
 set(KEYBOARD_GUIDE_BIN_NAME "M5CardputerZero-Keyboard-Guide" CACHE STRING "Output executable name")
 set(KEYBOARD_GUIDE_DEPS_DIR "${CMAKE_CURRENT_LIST_DIR}/dependencies" CACHE PATH "Third-party source directory")
 set(KEYBOARD_GUIDE_OUTPUT_DIR "${CMAKE_CURRENT_LIST_DIR}/dist" CACHE PATH "Runtime output directory")
@@ -207,3 +208,18 @@ target_link_libraries(${KEYBOARD_GUIDE_BIN_NAME} PRIVATE
 set_target_properties(${KEYBOARD_GUIDE_BIN_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${KEYBOARD_GUIDE_OUTPUT_DIR}"
 )
+
+if(KEYBOARD_GUIDE_BUILD_TESTS)
+    enable_testing()
+
+    add_executable(keyboard_guide_modifier_state_tests
+        tests/modifier_state_parser_test.cpp
+        src/input/modifier_state_parser.cpp
+    )
+    target_include_directories(keyboard_guide_modifier_state_tests PRIVATE "${KEYBOARD_GUIDE_SRC_DIR}")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(keyboard_guide_modifier_state_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+
+    add_test(NAME keyboard_guide_modifier_state COMMAND keyboard_guide_modifier_state_tests)
+endif()
