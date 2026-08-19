@@ -33,7 +33,7 @@ STATIC_FILES = [(ADir("assets/audio"), "audio")]
 
 env["COMPONENTS"].append(
     {
-        "target": "Keyboard_Guide",
+        "target": "M5CardputerZero-Keyboard-Guide",
         "SRCS": SRCS,
         "INCLUDE": INCLUDE,
         "PRIVATE_INCLUDE": PRIVATE_INCLUDE,
