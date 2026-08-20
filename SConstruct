@@ -5,7 +5,6 @@ with open(env["PROJECT_TOOL_S"]) as f:
 
 SRCS = append_srcs_dir(ADir("src"))
 INCLUDE = [
-    ADir("."),
     ADir("src"),
     ADir("src/assets"),
 ]
