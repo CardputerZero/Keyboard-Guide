@@ -119,9 +119,12 @@ void KeyboardGuideApp::onInput(const GuideInputEvent& event)
     }
     if (event.key == GuideKey::Tab) {
         const GuideLessonState& state = _model.state().get();
-        if (event.pressed && !event.repeated && state.phase != GuidePhase::Intro &&
-            state.exercise_index < GuideModel::kExerciseCount - 1 && _view_model.nextExercise()) {
-            _sound.play(SoundCue::Typing);
+        if (event.pressed && !event.repeated && state.phase != GuidePhase::Intro) {
+            if (state.exercise_index == GuideModel::kExerciseCount - 1) {
+                _quit_requested = true;
+            } else if (_view_model.nextExercise()) {
+                _sound.play(SoundCue::Typing);
+            }
         }
         return;
     }
