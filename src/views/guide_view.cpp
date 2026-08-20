@@ -774,7 +774,7 @@ void GuideView::render(const GuideLessonState& state)
     const bool hold           = state.exercise_index == 1;
     const bool success        = isSuccessPhase(state.phase);
 
-    _skip_label->setHidden(intro || final_text);
+    _skip_label->setHidden(intro);
     _intro_title->setHidden(!intro);
 
     _shift_key->setHidden(!(intro || hold || shift_sequence));
