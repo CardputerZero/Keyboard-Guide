@@ -16,6 +16,7 @@ BIN_NAME="M5CardputerZero-Keyboard-Guide"
 CMAKE_BIN="${CMAKE:-cmake}"
 CMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE:-Release}"
 READELF_BIN="${READELF:-readelf}"
+KEYBOARD_GUIDE_VERSION="${KEYBOARD_GUIDE_VERSION:-}"
 
 require_command() {
     if ! command -v "$1" >/dev/null 2>&1; then
@@ -50,6 +51,10 @@ CMAKE_CONFIGURE_ARGS=(
     -DKEYBOARD_GUIDE_USE_SDL=OFF
     -DKEYBOARD_GUIDE_OUTPUT_DIR="${BUILD_DIR}/dist"
 )
+
+if [[ -n "${KEYBOARD_GUIDE_VERSION}" ]]; then
+    CMAKE_CONFIGURE_ARGS+=("-DKEYBOARD_GUIDE_VERSION=${KEYBOARD_GUIDE_VERSION}")
+fi
 
 host_arch="$(uname -m)"
 if [[ "${host_arch}" != "aarch64" && "${host_arch}" != "arm64" ]]; then

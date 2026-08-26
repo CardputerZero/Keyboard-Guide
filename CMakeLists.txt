@@ -1,6 +1,23 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(M5CardputerZeroKeyboardGuide VERSION 0.1.0 LANGUAGES C CXX ASM)
+set(KEYBOARD_GUIDE_VERSION "$ENV{KEYBOARD_GUIDE_VERSION}" CACHE STRING "Keyboard Guide semantic version")
+if(NOT KEYBOARD_GUIDE_VERSION)
+    find_program(KEYBOARD_GUIDE_GIT_EXECUTABLE git)
+    if(KEYBOARD_GUIDE_GIT_EXECUTABLE)
+        execute_process(
+            COMMAND "${KEYBOARD_GUIDE_GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_LIST_DIR}"
+                    describe --tags --match "v[0-9]*" --abbrev=0
+            OUTPUT_VARIABLE KEYBOARD_GUIDE_VERSION_FROM_GIT
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+        )
+        string(REGEX REPLACE "^v" "" KEYBOARD_GUIDE_VERSION "${KEYBOARD_GUIDE_VERSION_FROM_GIT}")
+    endif()
+endif()
+if(NOT KEYBOARD_GUIDE_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    set(KEYBOARD_GUIDE_VERSION "0.0.0")
+endif()
+project(M5CardputerZeroKeyboardGuide VERSION ${KEYBOARD_GUIDE_VERSION} LANGUAGES C CXX ASM)
 
 option(KEYBOARD_GUIDE_USE_SDL "Use LVGL's SDL backend for desktop testing" ON)
 option(KEYBOARD_GUIDE_CONVERT_ASSETS "Refresh generated asset declarations during configure" ON)
