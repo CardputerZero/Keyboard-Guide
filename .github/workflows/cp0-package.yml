@@ -1,12 +1,15 @@
 name: cp0 package
 
 on:
-  push: {}
+  push:
+    branches:
+      - main
   pull_request: {}
   workflow_dispatch: {}
-  release:
-    types:
-      - published
+
+concurrency:
+  group: cp0-package-release
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -15,6 +18,8 @@ jobs:
   build:
     name: Test and build cp0 package
     runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     permissions:
       contents: read
 
@@ -61,7 +66,7 @@ jobs:
       - name: Calculate build version
         id: version
         env:
-          CURRENT_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
+          CURRENT_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
 
@@ -75,11 +80,13 @@ jobs:
               major="${BASH_REMATCH[1]}"
               minor="${BASH_REMATCH[2]}"
               patch="${BASH_REMATCH[3]}"
-              version="${major}.${minor}.$((patch + 1))"
             else
-              echo "No semantic version tag found; expected at least one vX.Y.Z tag." >&2
-              exit 1
+              major=0
+              minor=0
+              patch=0
             fi
+
+            version="${major}.${minor}.$((patch + 1))"
           fi
 
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
@@ -116,7 +123,7 @@ jobs:
 
   upload-release-assets:
     name: Upload Debian package to GitHub Release
-    if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     needs: build
     permissions:
@@ -133,10 +140,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
+          RELEASE_TAG: v${{ needs.build.outputs.version }}
         run: |
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release create "$RELEASE_TAG" \
+              --target "$GITHUB_SHA" \
               --title "Keyboard Guide $RELEASE_TAG" \
               --notes "Automated release for $RELEASE_TAG"
           fi
