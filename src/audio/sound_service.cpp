@@ -16,7 +16,11 @@ struct CueDefinition {
     float volume;
 };
 
-constexpr float kMasterVolume = 5.0f;
+// Keep the engine near unity gain. The old 5.0f was compensating for the
+// image's WirePlumber factory sink volume of 40% (0.064 linear, about -24 dB);
+// with the image now shipping a sane default volume, >1.0 amplification only
+// risks clipping the cues.
+constexpr float kMasterVolume = 1.5f;
 
 constexpr std::array<CueDefinition, 6> kCueDefinitions = {{
     {"mechanical-typing.wav", 1.00f},
