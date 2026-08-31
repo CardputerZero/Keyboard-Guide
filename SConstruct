@@ -29,21 +29,21 @@ DEFINITIONS_PRIVATE = []
 LDFLAGS = []
 LINK_SEARCH_PATH = []
 STATIC_FILES = [(ADir("assets/audio"), "audio")]
-
-env["COMPONENTS"].append(
-    {
-        "target": "M5CardputerZero-Keyboard-Guide",
-        "SRCS": SRCS,
-        "INCLUDE": INCLUDE,
-        "PRIVATE_INCLUDE": PRIVATE_INCLUDE,
-        "REQUIREMENTS": REQUIREMENTS,
-        "STATIC_LIB": STATIC_LIB,
-        "DYNAMIC_LIB": DYNAMIC_LIB,
-        "DEFINITIONS": DEFINITIONS,
-        "DEFINITIONS_PRIVATE": DEFINITIONS_PRIVATE,
-        "LDFLAGS": LDFLAGS,
-        "LINK_SEARCH_PATH": LINK_SEARCH_PATH,
-        "STATIC_FILES": STATIC_FILES,
-        "REGISTER": "project",
-    }
-)
+if 0:
+    env["COMPONENTS"].append(
+        {
+            "target": "M5CardputerZero-Keyboard-Guide",
+            "SRCS": SRCS,
+            "INCLUDE": INCLUDE,
+            "PRIVATE_INCLUDE": PRIVATE_INCLUDE,
+            "REQUIREMENTS": REQUIREMENTS,
+            "STATIC_LIB": STATIC_LIB,
+            "DYNAMIC_LIB": DYNAMIC_LIB,
+            "DEFINITIONS": DEFINITIONS,
+            "DEFINITIONS_PRIVATE": DEFINITIONS_PRIVATE,
+            "LDFLAGS": LDFLAGS,
+            "LINK_SEARCH_PATH": LINK_SEARCH_PATH,
+            "STATIC_FILES": STATIC_FILES,
+            "REGISTER": "project",
+        }
+    )
