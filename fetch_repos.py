@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+# SPDX-License-Identifier: MIT
+
 import json
 import os
 import subprocess
@@ -83,4 +86,3 @@ def ensure_dependencies():
 
 if __name__ == "__main__":
     fetch_dependencies()
-

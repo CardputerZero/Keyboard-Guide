@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+# SPDX-License-Identifier: MIT
+
 cmake_minimum_required(VERSION 3.16)
 
 set(KEYBOARD_GUIDE_VERSION "$ENV{KEYBOARD_GUIDE_VERSION}" CACHE STRING "Keyboard Guide semantic version")

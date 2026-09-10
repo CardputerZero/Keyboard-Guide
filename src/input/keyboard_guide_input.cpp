@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2026 M5Stack Technology CO LTD
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "input/keyboard_guide_input.hpp"
 
 #include "input/modifier_state_parser.hpp"
