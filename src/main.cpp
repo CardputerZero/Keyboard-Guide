@@ -48,6 +48,9 @@ int main()
 
     spdlog::info("Keyboard Guide: exit requested");
     app.stop();
+#if LV_USE_LINUX_FBDEV
+    keyboard_guide::flushExitLogo();
+#endif
     keyboard_guide::shutdownLvglHal();
     return 0;
 }

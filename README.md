@@ -31,3 +31,9 @@ cmake --build build/cp0 -j"$(nproc)"
 ```
 
 The script cross-compiles an ARM64 executable and writes both the standalone binary and APPLaunch Debian package to `dist/`.
+
+On normal device exit, Keyboard Guide loads `/usr/share/APPLaunch/share/images/logo_lcd.png`
+and synchronously flushes it to the framebuffer. This 320 x 170 PNG is installed by
+APPLaunch from `APPLaunch/share/images/logo_lcd.png`; it is decoded at runtime,
+not converted into a compiled image asset. A missing or invalid PNG is logged and
+does not prevent exit.
